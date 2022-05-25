@@ -8,6 +8,11 @@
 #include <string_view>
 #include <vector>
 
+#ifdef CLI_DEBUG
+#include <sstream>
+#endif
+
+namespace cli {
 struct ArgBase {
     ArgBase(std::string name, char shortOpt = 0)
         : name_(std::move(name))
@@ -284,11 +289,6 @@ struct ArgsBase {
 
     void remaining(std::vector<std::string>& args);
 
-    bool error() const
-    {
-        return error_;
-    }
-
     // Add a way for custom types. Need custom output type and custom parse
     // function (also error messages)
 
@@ -318,28 +318,23 @@ struct ArgsBase {
         return positionals_;
     }
 
-    void setError()
-    {
-        error_ = true;
-    };
-
 private:
     std::vector<std::unique_ptr<ArgBase>> flags_;
     std::vector<std::unique_ptr<ArgBase>> positionals_;
     bool error_ = false;
 };
 
-/* equivalent
-ls -l -s -w 0
-ls -l -s -w0
-ls -lsw0
-ls -ls --width 0
-ls -ls --width=0
-*/
-
-bool debug = true;
-
-#include <iostream>
+namespace detail {
+    template <typename... Args>
+    void debug([[maybe_unused]] Args&&... args)
+    {
+#ifdef CLI_DEBUG
+        std::stringstream ss;
+        (ss << ... << args);
+        puts(ss.str().c_str());
+#endif
+    }
+}
 
 struct Parser {
     Parser(std::string programName)
@@ -381,9 +376,7 @@ struct Parser {
         bool afterPosDelim = false;
         for (size_t argIdx = 0; argIdx < args.size(); ++argIdx) {
             std::string_view arg = args[argIdx];
-            if (debug) {
-                std::cout << "arg: '" << arg << "'" << std::endl;
-            }
+            detail::debug("arg: '", arg, "'");
 
             if (!afterPosDelim && arg.size() > 1 && arg[0] == '-') {
                 ArgBase* flag = nullptr;
@@ -398,7 +391,7 @@ struct Parser {
                     // parse long option
                     flag = at.flag(arg.substr(2));
                     if (!flag) {
-                        error(at, "Invalid option '" + std::string(arg) + "'");
+                        error("Invalid option '" + std::string(arg) + "'");
                         return std::nullopt;
                     }
                     optName = arg;
@@ -406,31 +399,27 @@ struct Parser {
                     // parse short option(s)
                     // parse all except the last as flags
                     for (const auto c : arg.substr(1, arg.size() - 2)) {
-                        if (debug) {
-                            std::cout << "short: " << std::string(1, c) << std::endl;
-                        }
+                        detail::debug("short: ", std::string(1, c));
                         auto flag = at.flag(c);
                         if (!flag) {
-                            error(at, "Invalid option '" + std::string(1, c) + "'");
+                            error("Invalid option '" + std::string(1, c) + "'");
                             return std::nullopt;
                         }
                         if (flag->max() != 0) {
                             const auto argStr = flag->max() == 1
                                 ? std::string("an argument")
                                 : std::to_string(flag->max()) + " arguments";
-                            error(at, "Option '" + std::string(1, c) + "' requires " + argStr);
+                            error("Option '" + std::string(1, c) + "' requires " + argStr);
                             return std::nullopt;
                         }
                         flag->parse("");
                     }
 
                     const auto lastOpt = arg[arg.size() - 1];
-                    if (debug) {
-                        std::cout << "lastOpt: " << std::string(1, lastOpt) << std::endl;
-                    }
+                    detail::debug("lastOpt: ", std::string(1, lastOpt));
                     flag = at.flag(lastOpt);
                     if (!flag) {
-                        error(at, "Invalid option '" + std::string(1, lastOpt) + "'");
+                        error("Invalid option '" + std::string(1, lastOpt) + "'");
                         return std::nullopt;
                     }
                     optName = std::string(1, lastOpt);
@@ -438,7 +427,7 @@ struct Parser {
 
                 assert(flag);
                 if (flag->max() == 0) {
-                    std::cout << "flag" << std::endl;
+                    detail::debug("flag");
                     flag->parse("");
                 } else {
                     size_t availableArgs = 0;
@@ -449,22 +438,19 @@ struct Parser {
                         }
                         availableArgs++;
                     }
-                    if (debug) {
-                        std::cout << "available: " << availableArgs << std::endl;
-                    }
+                    detail::debug("available: ", availableArgs);
                     assert(availableArgs <= flag->max());
 
                     if (availableArgs < flag->min()) {
-                        error(at,
-                            "Option '" + optName + "' requires at least "
-                                + std::to_string(flag->min())
-                                + (flag->min() > 1 ? " arguments" : " argument"));
+                        error("Option '" + optName + "' requires at least "
+                            + std::to_string(flag->min())
+                            + (flag->min() > 1 ? " arguments" : " argument"));
                         return std::nullopt;
                     }
 
                     for (size_t i = 0; i < availableArgs; ++i) {
                         const auto name = "option '" + optName + "'";
-                        if (!parseArg(at, *flag, name, args[argIdx + 1 + i])) {
+                        if (!parseArg(*flag, name, args[argIdx + 1 + i])) {
                             return std::nullopt;
                         }
                     }
@@ -473,7 +459,7 @@ struct Parser {
                 for (auto& positional : at.positionals()) {
                     if (positional->size() < positional->max()) {
                         const auto name = "argument '" + positional->name() + "'";
-                        if (!parseArg(at, *positional, name, args[argIdx])) {
+                        if (!parseArg(*positional, name, args[argIdx])) {
                             return std::nullopt;
                         }
                     }
@@ -483,7 +469,7 @@ struct Parser {
 
         for (auto& positional : at.positionals()) {
             if (positional->size() < positional->min()) {
-                error(at, "Missing argument '" + positional->name() + "'");
+                error("Missing argument '" + positional->name() + "'");
                 return std::nullopt;
             }
         }
@@ -498,7 +484,7 @@ struct Parser {
     }
 
 private:
-    bool parseArg(ArgsBase& at, ArgBase& arg, const std::string& name, const std::string& argStr)
+    bool parseArg(ArgBase& arg, const std::string& name, const std::string& argStr)
     {
         if (arg.choices().size() > 0) {
             bool found = false;
@@ -517,27 +503,25 @@ private:
                     }
                     valStr.append(choice);
                 }
-                error(at,
+                error(
                     "Invalid value for " + name + ": '" + argStr + "'. Possible values: " + valStr);
                 return false;
             }
         }
 
         if (!arg.parse(argStr)) {
-            error(at, "Invalid value for " + name);
+            error("Invalid value for " + name);
             return false;
         }
         return true;
     }
 
-    void error(ArgsBase& at, const std::string& message)
+    void error(const std::string& message)
     {
         std::fputs(message.c_str(), stderr);
         std::fputs("\n", stderr);
         if (exitOnError_) {
             std::exit(1);
-        } else {
-            at.setError();
         }
     }
 
@@ -548,3 +532,4 @@ private:
     bool addHelp_ = true;
     bool exitOnError_ = true;
 };
+}

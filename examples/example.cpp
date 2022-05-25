@@ -1,8 +1,9 @@
 #include <iostream>
 
+// #define CLI_DEBUG
 #include "cli.hpp"
 
-struct Args : public ArgsBase {
+struct Args : public cli::ArgsBase {
     bool foo = false;
     std::optional<std::string> opt;
     size_t verbose = 0;
@@ -19,7 +20,7 @@ struct Args : public ArgsBase {
 
 int main(int argc, char** argv)
 {
-    auto parser = Parser(argv[0]);
+    auto parser = cli::Parser(argv[0]);
     const auto args = parser.parse<Args>(argc, argv).value();
     std::cout << "foo: " << args.foo << std::endl;
     std::cout << "verbose: " << args.verbose << std::endl;

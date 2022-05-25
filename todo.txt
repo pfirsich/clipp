@@ -1,0 +1,12 @@
+* Split implementations and internal stuff to the bottom of the file
+* optional Param
+* vector Param
+* numbers
+* Flag containing '=': --flag=0, maybe -f=0?
+* Concatenated flag and value: -f0 (what should be the rules here?)
+* Custom data types
+* Help text
+* Usage on error
+* Tests
+* Examples (git like)
+* remaining()
