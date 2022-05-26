@@ -580,17 +580,17 @@ public:
             if (arg->optional()) {
                 usage.append("[");
                 usage.append(name);
-                usage.append("]");
                 if (arg->many()) {
-                    usage.append("..");
+                    usage.append("...");
                 }
+                usage.append("]");
             } else {
                 usage.append(name);
                 if (arg->many()) {
                     usage.append(" ");
                     usage.append("[");
                     usage.append(name);
-                    usage.append("]..");
+                    usage.append("...]");
                 }
             }
             usage.append(" ");
