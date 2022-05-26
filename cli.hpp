@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cstdio>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -13,6 +14,9 @@
 #endif
 
 namespace cli {
+// For all intents and purposes this value is infinity
+constexpr size_t infinity = std::numeric_limits<size_t>::max();
+
 struct ArgBase {
     ArgBase(std::string name, char shortOpt = 0)
         : name_(std::move(name))
@@ -440,12 +444,16 @@ struct Parser {
         exitOnError_ = exitOnError;
     }
 
+    void helpOffset(size_t helpOffset)
+    {
+        helpOffset_ = helpOffset;
+    }
+
     template <typename ArgsType>
     std::optional<ArgsType> parse(const std::vector<std::string>& args)
     {
         detail::debug(">>> parse");
         ArgsType at;
-        at.args();
 
         bool help = false;
         if (addHelp_) {
@@ -456,6 +464,8 @@ struct Parser {
         if (!version_.empty()) {
             at.flag(versionFlag, "version").help("Show version string and exit");
         }
+
+        at.args();
 
         if (usage_.empty()) {
             usage_ = getUsage(at);
@@ -644,18 +654,85 @@ private:
         }
     }
 
-    std::string getUsage(ArgsBase&)
+    static char toUpperCase(char ch)
+    {
+        if (ch >= 'a' && ch <= 'z') {
+            assert('a' > 'A');
+            return ch - ('a' - 'A');
+        }
+        return ch;
+    }
+
+    static std::string toUpperCase(std::string_view str)
+    {
+        std::string upper;
+        for (const auto ch : str) {
+            upper.push_back(toUpperCase(ch));
+        }
+        return upper;
+    }
+
+    static std::string repeatedArgs(const std::string& name, size_t min, size_t max)
+    {
+        std::string ret;
+        for (size_t i = 0; i < min; ++i) {
+            if (i > 0) {
+                ret.append(" ");
+            }
+            ret.append(name);
+        }
+        if (max > min) {
+            if (min > 0) {
+                ret.append(" ");
+            }
+            ret.append("[");
+            ret.append(name);
+            // This could use improvement
+            if (max - min > 1) {
+                ret.append("..");
+            }
+            ret.append("]");
+        }
+        return ret;
+    }
+
+    std::string getUsage(ArgsBase& at)
     {
         std::string usage = programName_;
         usage.append(" ");
+        for (const auto& arg : at.flags()) {
+            usage.append("[--");
+            usage.append(arg->name());
+            const auto repArgs = repeatedArgs(toUpperCase(arg->name()), arg->min(), arg->max());
+            if (!repArgs.empty()) {
+                usage.append(" ");
+                usage.append(repArgs);
+            }
+            usage.append("] ");
+        }
+
+        for (const auto& arg : at.positionals()) {
+            std::string name = arg->name();
+            if (!arg->choices().empty()) {
+                name = "{";
+                for (size_t i = 0; i < arg->choices().size(); ++i) {
+                    if (i > 0) {
+                        name.append(",");
+                    }
+                    name.append(arg->choices()[i]);
+                }
+                name.append("}");
+            }
+            usage.append(repeatedArgs(name, arg->min(), arg->max()));
+            usage.append(" ");
+        }
         return usage;
     }
 
-    static size_t getSpacing(size_t size)
+    size_t getSpacing(size_t size)
     {
-        const auto offset = 35;
         const auto minSpacing = 4;
-        return size > offset - minSpacing ? minSpacing : offset - size;
+        return size > helpOffset_ - minSpacing ? minSpacing : helpOffset_ - size;
     }
 
     std::string getHelp(ArgsBase& at)
@@ -692,16 +769,22 @@ private:
             help.append("Optional Arguments:\n");
             for (const auto& arg : at.flags()) {
                 help.append("  ");
-                size_t size = 0;
                 if (arg->shortOpt()) {
                     help.append("-");
                     help.append(std::string(1, arg->shortOpt()));
                     help.append(", ");
-                    size += 4;
+                } else {
+                    help.append("    ");
                 }
                 help.append("--");
                 help.append(arg->name());
-                size += 2 + arg->name().size();
+                size_t size = 4 + 2 + arg->name().size();
+                const auto repArgs = repeatedArgs(toUpperCase(arg->name()), arg->min(), arg->max());
+                if (!repArgs.empty()) {
+                    help.append(" ");
+                    help.append(repArgs);
+                    size += 1 + repArgs.size();
+                }
                 help.append(getSpacing(size), ' ');
                 help.append(arg->help());
                 help.append("\n");
@@ -723,5 +806,6 @@ private:
     std::string usage_;
     bool addHelp_ = true;
     bool exitOnError_ = true;
+    size_t helpOffset_ = 40;
 };
 }

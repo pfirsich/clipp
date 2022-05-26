@@ -10,7 +10,7 @@ struct ParentArgs : public cli::ArgsBase {
 
     void args()
     {
-        flag(device, "device", 'd');
+        flag(device, "device", 'd').help("Which device to start the system on");
         subCommand(command, remaining, "command").choices({ "start", "stop" });
     }
 };
@@ -21,8 +21,8 @@ struct StartArgs : public cli::ArgsBase {
 
     void args()
     {
-        flag(power, "power", 'p');
-        param(system, "system");
+        flag(power, "power", 'p').help("With how much power to start the system");
+        param(system, "system").help("The system to start");
     }
 };
 
@@ -32,8 +32,8 @@ struct StopArgs : public cli::ArgsBase {
 
     void args()
     {
-        flag(force, "force", 'f');
-        param(system, "system");
+        flag(force, "force", 'f').help("Force stopping of system");
+        param(system, "system").help("The system to stop");
     }
 };
 

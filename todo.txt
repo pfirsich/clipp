@@ -1,4 +1,3 @@
-* Proper usage string
 * optional Param
 * vector Param
 * numbers
@@ -8,5 +7,6 @@
 * Custom validation functions?
 * More Examples
 * How to test --help, --version and error messages?
+* Probably a million things in help/usage strings
 * remaining() - just enable this in parser and collect them instead of error-ing
 * Split implementations and internal stuff to the bottom of the file?
