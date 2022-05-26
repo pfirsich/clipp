@@ -611,12 +611,11 @@ private:
             }
             if (!found) {
                 std::string valStr;
-                bool first = false;
-                for (const auto& choice : arg.choices()) {
-                    if (!first) {
+                for (size_t i = 0; i < arg.choices().size(); ++i) {
+                    if (i > 0) {
                         valStr.append(", ");
                     }
-                    valStr.append(choice);
+                    valStr.append(arg.choices()[i]);
                 }
                 error(
                     "Invalid value for " + name + ": '" + argStr + "'. Possible values: " + valStr);
@@ -671,10 +670,21 @@ private:
             help.append("Positional Arguments:\n");
             for (const auto& arg : at.positionals()) {
                 help.append("  ");
-                help.append(arg->name());
-                help.append(getSpacing(arg->name().size()), ' ');
-                help.append(arg->help());
-                help.append("\n");
+                if (!arg->choices().empty()) {
+                    help.append("{");
+                    for (size_t i = 0; i < arg->choices().size(); ++i) {
+                        if (i > 0) {
+                            help.append(",");
+                        }
+                        help.append(arg->choices()[i]);
+                    }
+                    help.append("}\n");
+                } else {
+                    help.append(arg->name());
+                    help.append(getSpacing(arg->name().size()), ' ');
+                    help.append(arg->help());
+                    help.append("\n");
+                }
             }
             help.append("\n");
         }
