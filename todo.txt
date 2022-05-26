@@ -5,7 +5,6 @@
 * Flag containing '=': --flag=0, maybe -f=0?
 * Concatenated flag and value: -f0 (what should be the rules here?)
 * Custom data types
-* Help text
-* Usage on error
+* Proper usage string
 * Examples (git like)
 * remaining()

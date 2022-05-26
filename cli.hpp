@@ -88,7 +88,7 @@ struct ArgBuilderMixin : public ArgBase {
 
     Derived& help(std::string help)
     {
-        help = std::move(help);
+        help_ = std::move(help);
         return derived();
     }
 
@@ -293,6 +293,11 @@ struct ArgsBase {
     // function (also error messages)
 
     // FROM PARSER
+    std::vector<std::unique_ptr<ArgBase>>& flags()
+    {
+        return flags_;
+    }
+
     ArgBase* flag(std::string_view name)
     {
         for (const auto& f : flags_) {
@@ -347,6 +352,11 @@ struct Parser {
         description_ = std::move(description);
     }
 
+    void usage(std::string usage)
+    {
+        usage_ = std::move(usage);
+    }
+
     void epilog(std::string epilog)
     {
         epilog_ = std::move(epilog);
@@ -373,6 +383,20 @@ struct Parser {
         detail::debug(">>> parse");
         ArgsType at;
         at.args();
+
+        bool help = false;
+        if (addHelp_) {
+            at.flag(help, "help", 'h').help("Show this help message and exit");
+        }
+
+        bool versionFlag = false;
+        if (!version_.empty()) {
+            at.flag(versionFlag, "version").help("Show version string and exit");
+        }
+
+        if (usage_.empty()) {
+            usage_ = getUsage(at);
+        }
 
         bool afterPosDelim = false;
         for (size_t argIdx = 0; argIdx < args.size(); ++argIdx) {
@@ -476,6 +500,16 @@ struct Parser {
             }
         }
 
+        if (help) {
+            puts(getHelp(at).c_str());
+            std::exit(0);
+        }
+
+        if (versionFlag) {
+            puts(version_.c_str());
+            std::exit(0);
+        }
+
         for (auto& positional : at.positionals()) {
             if (positional->size() < positional->min()) {
                 error("Missing argument '" + positional->name() + "'");
@@ -529,15 +563,82 @@ private:
     {
         std::fputs(message.c_str(), stderr);
         std::fputs("\n", stderr);
+        if (!usage_.empty()) {
+            std::fputs("Usage: ", stderr);
+            std::fputs(usage_.c_str(), stderr);
+            std::fputs("\n", stderr);
+        }
         if (exitOnError_) {
             std::exit(1);
         }
+    }
+
+    std::string getUsage(ArgsBase&)
+    {
+        std::string usage = programName_;
+        usage.append(" ");
+        return usage;
+    }
+
+    static size_t getSpacing(size_t size)
+    {
+        const auto offset = 35;
+        const auto minSpacing = 4;
+        return size > offset - minSpacing ? minSpacing : offset - size;
+    }
+
+    std::string getHelp(ArgsBase& at)
+    {
+        std::string help = "Usage: " + getUsage(at);
+        help.append("\n\n");
+        if (!description_.empty()) {
+            help.append(description_);
+            help.append("\n\n");
+        }
+        if (!at.positionals().empty()) {
+            help.append("Positional Arguments:\n");
+            for (const auto& arg : at.positionals()) {
+                help.append("  ");
+                help.append(arg->name());
+                help.append(getSpacing(arg->name().size()), ' ');
+                help.append(arg->help());
+                help.append("\n");
+            }
+            help.append("\n");
+        }
+        if (!at.positionals().empty()) {
+            help.append("Optional Arguments:\n");
+            for (const auto& arg : at.flags()) {
+                help.append("  ");
+                size_t size = 0;
+                if (arg->shortOpt()) {
+                    help.append("-");
+                    help.append(std::string(1, arg->shortOpt()));
+                    help.append(", ");
+                    size += 4;
+                }
+                help.append("--");
+                help.append(arg->name());
+                size += 2 + arg->name().size();
+                help.append(getSpacing(size), ' ');
+                help.append(arg->help());
+                help.append("\n");
+            }
+            help.append("\n");
+        }
+        if (!epilog_.empty()) {
+            help.append("\n");
+            help.append(epilog_);
+            help.append("\n");
+        }
+        return help;
     }
 
     std::string programName_;
     std::string description_;
     std::string epilog_;
     std::string version_;
+    std::string usage_;
     bool addHelp_ = true;
     bool exitOnError_ = true;
 };

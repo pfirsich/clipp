@@ -12,10 +12,10 @@ struct Args : public cli::ArgsBase {
 
     void args()
     {
-        flag(foo, "foo", 'f');
-        flag(opt, "opt", 'o');
-        flag(verbose, "verbose", 'v');
-        param(pos, "pos");
+        flag(foo, "foo", 'f').help("a boolean flag");
+        flag(opt, "opt", 'o').help("an optional string");
+        flag(verbose, "verbose", 'v').help("a counted flag");
+        param(pos, "pos").help("a positional argument");
     }
 };
 
@@ -23,6 +23,7 @@ template <typename ArgsType>
 auto parse(std::vector<std::string> args)
 {
     auto parser = cli::Parser("test");
+    parser.version("0.1");
     parser.exitOnError(false);
     return parser.parse<ArgsType>(args);
 }
@@ -129,3 +130,10 @@ TEST_CASE(R"({ "foo", "foo" } (OptParam))")
     const auto args = parse<OptParam>({ "foo", "foo" });
     CHECK(!args);
 }
+
+// How to test help and version (which exit)?
+/* TEST_CASE(R"({ "--help" } (OptParam))")
+{
+    const auto args = parse<Args>({ "--help" });
+    CHECK(!args);
+} */
