@@ -1,6 +1,4 @@
-* Rework everything, because it doesn't make sense
-* Support for passing a flag multiple times (and collecting into a vector). How to arrange with --foo 1 2 3 vs. --foo 1 --foo 2?
-* Hide ArgBase, because an ArgsBase -> ArgBase typo is very easy and gives horrible errors
+* Rethink terminology: "args", "arg", "params", "flags"
 * Flag containing '=': --flag=0, maybe -f=0?
 * README / Docs
 * Examples

@@ -1,10 +1,10 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-// #define CLI_DEBUG
-#include "cli.hpp"
+// #define CLIPP_DEBUG
+#include "clipp.hpp"
 
-struct StringOutput : cli::OutputBase {
+struct StringOutput : clipp::OutputBase {
     void out(std::string_view str)
     {
         output.append(str);
@@ -37,7 +37,7 @@ auto parse(std::vector<std::string> args)
     output->clear();
     exitStatus = 0;
 
-    auto parser = cli::Parser("test");
+    auto parser = clipp::Parser("test");
     parser.version("0.1");
     parser.output(output);
     parser.exit([](int status) { exitStatus = status; });
@@ -45,7 +45,7 @@ auto parse(std::vector<std::string> args)
     return parser.parse<ArgsType>(args);
 }
 
-struct Args : public cli::ArgsBase {
+struct Args : public clipp::ArgsBase {
     bool foo = false;
     std::optional<std::string> opt;
     size_t verbose = 0;
@@ -182,7 +182,7 @@ TEST_CASE(R"({ "--fnum", "42.542", "pos" } (Args))")
     CHECK(std::fabs(*args->fnum - 42.542) < 1e-8);
 }
 
-struct OptParam : public cli::ArgsBase {
+struct OptParam : public clipp::ArgsBase {
     std::string pos = "def";
 
     void args()
@@ -214,7 +214,7 @@ TEST_CASE(R"({ "foo", "foo" } (OptParam))")
 enum class MyEnum { A, B, C };
 
 template <>
-struct cli::Value<MyEnum> {
+struct clipp::Value<MyEnum> {
     static constexpr std::string_view typeName = "MyEnum";
 
     static std::optional<MyEnum> parse(std::string_view str)
@@ -230,7 +230,7 @@ struct cli::Value<MyEnum> {
     }
 };
 
-struct CustomType : public cli::ArgsBase {
+struct CustomType : public clipp::ArgsBase {
     MyEnum val;
 
     void args()
@@ -274,7 +274,7 @@ TEST_CASE(R"({ "--help" } (Args))")
     CHECK(exitStatus == 0);
 }
 
-struct StdOptParam : public cli::ArgsBase {
+struct StdOptParam : public clipp::ArgsBase {
     int64_t x = 1000;
     std::optional<int64_t> y;
 
@@ -310,7 +310,7 @@ TEST_CASE(R"({ "42", "42" } (StdOptParam))")
     CHECK(args->y.value() == 42);
 }
 
-struct VecFlag : public cli::ArgsBase {
+struct VecFlag : public clipp::ArgsBase {
     std::vector<int64_t> vec;
 
     void args()
@@ -353,54 +353,12 @@ TEST_CASE(R"({ "--vec", "1", "2", "3", "4" } (VecFlag))")
     CHECK(!args);
 }
 
-struct VecFlagRange : public cli::ArgsBase {
-    std::vector<int64_t> vec;
-    std::optional<int64_t> num;
-
-    void args()
-    {
-        flag(vec, "vec").min(1).max(2);
-        flag(num, "num");
-    }
-};
-
-TEST_CASE(R"({ "--vec", "--num", "42" } (VecFlagRange))")
-{
-    const auto args = parse<VecFlagRange>({ "--vec", "--num", "42" });
-    CHECK(!args);
-}
-
-TEST_CASE(R"({ "--vec", "1", "--num", "42" } (VecFlagRange))")
-{
-    const auto args = parse<VecFlagRange>({ "--vec", "1", "--num", "42" });
-    REQUIRE(args);
-    CHECK(args->vec.size() == 1);
-    CHECK(args->vec[0] == 1);
-    CHECK(args->num == 42);
-}
-
-TEST_CASE(R"({ "--vec", "1", "2", "--num", "42" } (VecFlagRange))")
-{
-    const auto args = parse<VecFlagRange>({ "--vec", "1", "2", "--num", "42" });
-    REQUIRE(args);
-    CHECK(args->vec.size() == 2);
-    CHECK(args->vec[0] == 1);
-    CHECK(args->vec[1] == 2);
-    CHECK(args->num == 42);
-}
-
-TEST_CASE(R"({ "--vec", "1", "2", "3", "--num", "42" } (VecFlagRange))")
-{
-    const auto args = parse<VecFlagRange>({ "--vec", "1", "2", "3", "--num", "42" });
-    CHECK(!args);
-}
-
-struct VecParamZeroToInf : public cli::ArgsBase {
+struct VecParamZeroToInf : public clipp::ArgsBase {
     std::vector<std::string> params;
 
     void args()
     {
-        param(params, "param").min(0);
+        param(params, "param").optional();
     }
 };
 
@@ -428,12 +386,12 @@ TEST_CASE(R"({ "a", "b" } (VecParamZeroToInf))")
     CHECK(args->params[1] == "b");
 }
 
-struct VecParamOneToInf : public cli::ArgsBase {
+struct VecParamOneToInf : public clipp::ArgsBase {
     std::vector<std::string> params;
 
     void args()
     {
-        param(params, "param").min(1); // this is default
+        param(params, "param");
     }
 };
 
@@ -458,4 +416,41 @@ TEST_CASE(R"({ "a", "b" } (VecParamOneToInf))")
     CHECK(args->params.size() == 2);
     CHECK(args->params[0] == "a");
     CHECK(args->params[1] == "b");
+}
+
+struct VecFlagDontCollectArgs : public clipp::ArgsBase {
+    std::vector<int64_t> vals;
+
+    void args()
+    {
+        flag(vals, "vals");
+    }
+};
+
+TEST_CASE(R"({ "--vals", "1", "--vals", "2", "--vals", "3" } (VecFlagDontCollectArgs))")
+{
+    const auto args
+        = parse<VecFlagDontCollectArgs>({ "--vals", "1", "--vals", "2", "--vals", "3" });
+    REQUIRE(args);
+    CHECK(args->vals.size() == 1);
+    CHECK(args->vals[0] == 3);
+}
+
+struct VecFlagCollectArgs : public clipp::ArgsBase {
+    std::vector<int64_t> vals;
+
+    void args()
+    {
+        flag(vals, "vals").collect();
+    }
+};
+
+TEST_CASE(R"({ "--vals", "1", "--vals", "2", "--vals", "3" } (VecFlagCollectArgs))")
+{
+    const auto args = parse<VecFlagCollectArgs>({ "--vals", "1", "--vals", "2", "--vals", "3" });
+    REQUIRE(args);
+    CHECK(args->vals.size() == 3);
+    CHECK(args->vals[0] == 1);
+    CHECK(args->vals[1] == 2);
+    CHECK(args->vals[2] == 3);
 }

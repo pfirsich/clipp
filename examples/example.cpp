@@ -1,9 +1,9 @@
 #include <iostream>
 
-// #define CLI_DEBUG
-#include "cli.hpp"
+// #define CLIPP_DEBUG
+#include "clipp.hpp"
 
-struct Args : public cli::ArgsBase {
+struct Args : public clipp::ArgsBase {
     bool foo = false;
     std::optional<std::string> opt;
     size_t verbose = 0;
@@ -30,7 +30,7 @@ struct Args : public cli::ArgsBase {
 
 int main(int argc, char** argv)
 {
-    auto parser = cli::Parser(argv[0]);
+    auto parser = clipp::Parser(argv[0]);
     const auto args = parser.parse<Args>(argc, argv).value();
     std::cout << "foo: " << args.foo << std::endl;
     std::cout << "verbose: " << args.verbose << std::endl;

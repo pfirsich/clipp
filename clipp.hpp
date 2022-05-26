@@ -11,11 +11,11 @@
 #include <string_view>
 #include <vector>
 
-#ifdef CLI_DEBUG
+#ifdef CLIPP_DEBUG
 #include <sstream>
 #endif
 
-namespace cli {
+namespace clipp {
 template <typename T>
 struct Value;
 
@@ -81,7 +81,7 @@ namespace detail {
     template <typename... Args>
     void debug([[maybe_unused]] Args&&... args)
     {
-#ifdef CLI_DEBUG
+#ifdef CLIPP_DEBUG
         std::stringstream ss;
         (ss << ... << args);
         std::puts(ss.str().c_str());
@@ -93,10 +93,9 @@ namespace detail {
 
     class ArgBase {
     public:
-        ArgBase(std::string name, std::string_view typeName, char shortOpt = 0)
+        ArgBase(std::string name, std::string_view typeName)
             : name_(std::move(name))
             , typeName_(std::move(typeName))
-            , shortOpt_(shortOpt)
         {
         }
 
@@ -109,39 +108,19 @@ namespace detail {
             return name_;
         }
 
-        std::string_view typeName() const
-        {
-            return typeName_;
-        }
-
-        char shortOpt() const
-        {
-            return shortOpt_;
-        }
-
-        const std::vector<std::string>& choices() const
-        {
-            return choices_;
-        }
-
         const std::string& help() const
         {
             return help_;
         }
 
-        size_t min() const
+        std::string_view typeName() const
         {
-            return min_;
+            return typeName_;
         }
 
-        size_t max() const
+        const std::vector<std::string>& choices() const
         {
-            return max_;
-        }
-
-        size_t size() const
-        {
-            return size_;
+            return choices_;
         }
 
         bool halt() const
@@ -154,20 +133,89 @@ namespace detail {
     protected:
         std::string name_;
         std::string_view typeName_;
-        char shortOpt_ = 0;
-        size_t min_ = 0;
-        size_t max_ = 0;
         std::string help_;
         std::vector<std::string> choices_;
-        size_t size_ = 0;
         bool halt_ = false;
     };
 
-    template <typename Derived>
-    struct ArgBuilderMixin : public ArgBase {
-        ArgBuilderMixin(std::string name, std::string_view typeName, char shortOpt = 0)
-            : ArgBase(std::move(name), typeName, shortOpt)
+    class FlagBase : public ArgBase {
+    public:
+        FlagBase(std::string name, std::string_view typeName, char shortOpt)
+            : ArgBase(std::move(name), typeName)
+            , shortOpt_(shortOpt)
         {
+        }
+
+        char shortOpt() const
+        {
+            return shortOpt_;
+        }
+
+        size_t num() const
+        {
+            return num_;
+        }
+
+        bool collect() const
+        {
+            return collect_;
+        }
+
+        virtual void reset()
+        {
+        }
+
+    protected:
+        char shortOpt_;
+        size_t num_ = 0;
+        bool collect_ = false;
+    };
+
+    class ParamBase : public ArgBase {
+    public:
+        ParamBase(std::string name, std::string_view typeName)
+            : ArgBase(std::move(name), typeName)
+        {
+        }
+
+        bool optional() const
+        {
+            return optional_;
+        }
+
+        bool many() const
+        {
+            return many_;
+        }
+
+        size_t size() const
+        {
+            return size_;
+        }
+
+    protected:
+        bool optional_ = false;
+        bool many_ = false;
+        size_t size_ = 0;
+    };
+
+    template <typename Derived>
+    struct FlagBuilderMixin : public FlagBase {
+        FlagBuilderMixin(std::string name, std::string_view typeName, char shortOpt)
+            : FlagBase(std::move(name), typeName, shortOpt)
+        {
+        }
+
+        Derived& num(size_t num)
+        {
+            num_ = num;
+            return derived();
+        }
+
+        Derived& collect(bool collect = true)
+        {
+            collect_ = collect;
+            return derived();
         }
 
         // Take a list of strings, because with custom types, we might not be able to
@@ -184,28 +232,50 @@ namespace detail {
             return derived();
         }
 
-        // Only relevant for params
-        Derived& optional()
+        Derived& halt(bool halt = true)
         {
-            return min(0);
-        }
-
-        Derived& min(size_t n)
-        {
-            min_ = n;
+            halt_ = halt;
             return derived();
         }
 
-        Derived& max(size_t n)
+    private:
+        Derived& derived()
         {
-            max_ = n;
+            return *static_cast<Derived*>(this);
+        }
+    };
+
+    template <typename Derived>
+    struct ParamBuilderMixin : public ParamBase {
+        ParamBuilderMixin(std::string name, std::string_view typeName)
+            : ParamBase(std::move(name), typeName)
+        {
+        }
+
+        Derived& optional(bool optional = true)
+        {
+            optional_ = optional;
             return derived();
         }
 
-        // For flags this does something like "--foo 1 2 3"
-        Derived& num(size_t n)
+        Derived& many(bool many = true)
         {
-            return min(n).max(n);
+            many_ = many;
+            return derived();
+        }
+
+        // Take a list of strings, because with custom types, we might not be able to
+        // give a nice error message or conversion might be lossy somehow.
+        Derived& choices(std::vector<std::string> c)
+        {
+            choices_ = std::move(c);
+            return derived();
+        }
+
+        Derived& help(std::string help)
+        {
+            help_ = std::move(help);
+            return derived();
         }
 
         Derived& halt(bool halt = true)
@@ -214,6 +284,7 @@ namespace detail {
             return derived();
         }
 
+    private:
         Derived& derived()
         {
             return *static_cast<Derived*>(this);
@@ -225,10 +296,10 @@ namespace detail {
 
     // A simple flag like. "--foo" => v = true
     template <>
-    class Flag<bool> : public ArgBuilderMixin<Flag<bool>> {
+    class Flag<bool> : public FlagBuilderMixin<Flag<bool>> {
     public:
-        Flag(bool& value, std::string name, char shortOpt = 0)
-            : ArgBuilderMixin(std::move(name), "", shortOpt)
+        Flag(bool& value, std::string name, char shortOpt)
+            : FlagBuilderMixin(std::move(name), "", shortOpt)
             , value_(value)
         {
         }
@@ -246,10 +317,10 @@ namespace detail {
 
     // Counts flags. "-vvvv" => v = 4
     template <>
-    class Flag<size_t> : public ArgBuilderMixin<Flag<size_t>> {
+    class Flag<size_t> : public FlagBuilderMixin<Flag<size_t>> {
     public:
-        Flag(size_t& value, std::string name, char shortOpt = 0)
-            : ArgBuilderMixin(std::move(name), "", shortOpt)
+        Flag(size_t& value, std::string name, char shortOpt)
+            : FlagBuilderMixin(std::move(name), "", shortOpt)
             , value_(value)
         {
         }
@@ -267,10 +338,11 @@ namespace detail {
 
     // An optional flag. "--foo cool" => v = cool
     template <typename T>
-    class Flag<std::optional<T>> : public ArgBuilderMixin<Flag<std::optional<T>>> {
+    class Flag<std::optional<T>> : public FlagBuilderMixin<Flag<std::optional<T>>> {
     public:
-        Flag(std::optional<T>& value, std::string name, char shortOpt = 0)
-            : ArgBuilderMixin<Flag<std::optional<T>>>(std::move(name), Value<T>::typeName, shortOpt)
+        Flag(std::optional<T>& value, std::string name, char shortOpt)
+            : FlagBuilderMixin<Flag<std::optional<T>>>(
+                std::move(name), Value<T>::typeName, shortOpt)
             , value_(value)
         {
             this->num(1);
@@ -291,23 +363,30 @@ namespace detail {
     };
 
     template <typename T>
-    class Flag<std::vector<T>> : public ArgBuilderMixin<Flag<std::vector<T>>> {
+    class Flag<std::vector<T>> : public FlagBuilderMixin<Flag<std::vector<T>>> {
     public:
-        Flag(std::vector<T>& values, std::string name, char shortOpt = 0)
-            : ArgBuilderMixin<Flag<std::vector<T>>>(std::move(name), Value<T>::typeName, shortOpt)
+        Flag(std::vector<T>& values, std::string name, char shortOpt)
+            : FlagBuilderMixin<Flag<std::vector<T>>>(std::move(name), Value<T>::typeName, shortOpt)
             , values_(values)
         {
-            this->min(1);
-            this->max(infinity);
+            this->num(1);
+        }
+
+        void reset() override
+        {
+            debug("reset");
+            values_.clear();
         }
 
         bool parse(std::string_view str) override
         {
+            debug("parse ", str);
             const auto res = Value<T>::parse(str);
             if (!res) {
                 return false;
             }
             values_.push_back(res.value());
+            debug("size after: ", values_.size());
             return true;
         }
 
@@ -316,13 +395,12 @@ namespace detail {
     };
 
     template <typename T>
-    class Param : public ArgBuilderMixin<Param<T>> {
+    class Param : public ParamBuilderMixin<Param<T>> {
     public:
         Param(T& value, std::string name)
-            : ArgBuilderMixin<Param<T>>(std::move(name), Value<T>::typeName)
+            : ParamBuilderMixin<Param<T>>(std::move(name), Value<T>::typeName)
             , value_(value)
         {
-            this->num(1);
         }
 
         bool parse(std::string_view str) override
@@ -341,14 +419,13 @@ namespace detail {
     };
 
     template <typename T>
-    class Param<std::optional<T>> : public ArgBuilderMixin<Param<std::optional<T>>> {
+    class Param<std::optional<T>> : public ParamBuilderMixin<Param<std::optional<T>>> {
     public:
         Param(std::optional<T>& value, std::string name)
-            : ArgBuilderMixin<Param<std::optional<T>>>(std::move(name), Value<T>::typeName)
+            : ParamBuilderMixin<Param<std::optional<T>>>(std::move(name), Value<T>::typeName)
             , value_(value)
         {
-            this->min(0);
-            this->max(1);
+            this->optional();
         }
 
         bool parse(std::string_view str) override
@@ -367,14 +444,13 @@ namespace detail {
     };
 
     template <typename T>
-    class Param<std::vector<T>> : public ArgBuilderMixin<Param<std::vector<T>>> {
+    class Param<std::vector<T>> : public ParamBuilderMixin<Param<std::vector<T>>> {
     public:
         Param(std::vector<T>& values, std::string name)
-            : ArgBuilderMixin<Param<std::vector<T>>>(std::move(name), Value<T>::typeName)
+            : ParamBuilderMixin<Param<std::vector<T>>>(std::move(name), Value<T>::typeName)
             , values_(values)
         {
-            this->min(1);
-            this->max(infinity);
+            this->many();
         }
 
         bool parse(std::string_view str) override
@@ -410,26 +486,14 @@ namespace detail {
         return upper;
     }
 
-    std::string repeatedArgs(const std::string& name, size_t min, size_t max)
+    std::string repeated(const std::string& str, size_t num)
     {
         std::string ret;
-        for (size_t i = 0; i < min; ++i) {
+        for (size_t i = 0; i < num; ++i) {
             if (i > 0) {
                 ret.append(" ");
             }
-            ret.append(name);
-        }
-        if (max > min) {
-            if (min > 0) {
-                ret.append(" ");
-            }
-            ret.append("[");
-            ret.append(name);
-            // This could use improvement
-            if (max - min > 1) {
-                ret.append("..");
-            }
-            ret.append("]");
+            ret.append(str);
         }
         return ret;
     }
@@ -493,8 +557,7 @@ public:
         for (const auto& arg : flags_) {
             usage.append("[--");
             usage.append(arg->name());
-            const auto repArgs
-                = detail::repeatedArgs(detail::toUpperCase(arg->name()), arg->min(), arg->max());
+            const auto repArgs = detail::repeated(detail::toUpperCase(arg->name()), arg->num());
             if (!repArgs.empty()) {
                 usage.append(" ");
                 usage.append(repArgs);
@@ -514,7 +577,22 @@ public:
                 }
                 name.append("}");
             }
-            usage.append(detail::repeatedArgs(name, arg->min(), arg->max()));
+            if (arg->optional()) {
+                usage.append("[");
+                usage.append(name);
+                usage.append("]");
+                if (arg->many()) {
+                    usage.append("..");
+                }
+            } else {
+                usage.append(name);
+                if (arg->many()) {
+                    usage.append(" ");
+                    usage.append("[");
+                    usage.append(name);
+                    usage.append("]..");
+                }
+            }
             usage.append(" ");
         }
         return usage;
@@ -578,8 +656,7 @@ public:
                 help.append("--");
                 help.append(arg->name());
                 size_t size = 4 + 2 + arg->name().size();
-                const auto repArgs = detail::repeatedArgs(
-                    detail::toUpperCase(arg->name()), arg->min(), arg->max());
+                const auto repArgs = detail::repeated(detail::toUpperCase(arg->name()), arg->num());
                 if (!repArgs.empty()) {
                     help.append(" ");
                     help.append(repArgs);
@@ -608,7 +685,7 @@ private:
     // This is the easiest way to do it, even though it's not squeaky clean.
     friend class Parser;
 
-    detail::ArgBase* flag(std::string_view name)
+    detail::FlagBase* flag(std::string_view name)
     {
         for (const auto& f : flags_) {
             if (f->name() == name) {
@@ -618,7 +695,7 @@ private:
         return nullptr;
     }
 
-    detail::ArgBase* flag(char shortOpt)
+    detail::FlagBase* flag(char shortOpt)
     {
         for (const auto& f : flags_) {
             if (f->shortOpt() == shortOpt) {
@@ -628,8 +705,8 @@ private:
         return nullptr;
     }
 
-    bool nameUnique(
-        const std::string& name, const std::vector<std::unique_ptr<detail::ArgBase>>& args)
+    template <typename Container>
+    bool nameUnique(const std::string& name, Container&& args)
     {
         for (const auto& arg : args) {
             if (arg->name() == name) {
@@ -657,8 +734,8 @@ private:
         return true;
     }
 
-    std::vector<std::unique_ptr<detail::ArgBase>> flags_;
-    std::vector<std::unique_ptr<detail::ArgBase>> positionals_;
+    std::vector<std::unique_ptr<detail::FlagBase>> flags_;
+    std::vector<std::unique_ptr<detail::ParamBase>> positionals_;
     std::vector<std::string> remaining_;
 };
 
@@ -724,7 +801,7 @@ public:
             detail::debug("arg: '", arg, "'");
 
             if (!afterPosDelim && arg.size() > 1 && arg[0] == '-') {
-                detail::ArgBase* flag = nullptr;
+                detail::FlagBase* flag = nullptr;
                 std::string optName;
 
                 if (arg[1] == '-') {
@@ -750,10 +827,10 @@ public:
                             error(args, "Invalid option '" + std::string(1, c) + "'");
                             return std::nullopt;
                         }
-                        if (flag->max() != 0) {
-                            const auto argStr = flag->max() == 1
+                        if (flag->num() != 0) {
+                            const auto argStr = flag->num() == 1
                                 ? std::string("an argument")
-                                : std::to_string(flag->max()) + " arguments";
+                                : std::to_string(flag->num()) + " arguments";
                             error(args, "Option '" + std::string(1, c) + "' requires " + argStr);
                             return std::nullopt;
                         }
@@ -771,12 +848,12 @@ public:
                 }
 
                 assert(flag);
-                if (flag->max() == 0) {
+                if (flag->num() == 0) {
                     detail::debug("flag");
                     flag->parse("");
                 } else {
                     size_t availableArgs = 0;
-                    for (size_t i = argIdx + 1; i < std::min(argv.size(), argIdx + 1 + flag->max());
+                    for (size_t i = argIdx + 1; i < std::min(argv.size(), argIdx + 1 + flag->num());
                          ++i) {
                         if (!argv[i].empty() && argv[i][0] == '-') {
                             break;
@@ -784,14 +861,17 @@ public:
                         availableArgs++;
                     }
                     detail::debug("available: ", availableArgs);
-                    assert(availableArgs <= flag->max());
+                    assert(availableArgs <= flag->num());
 
-                    if (availableArgs < flag->min()) {
+                    if (availableArgs < flag->num()) {
                         error(args,
-                            "Option '" + optName + "' requires at least "
-                                + std::to_string(flag->min())
-                                + (flag->min() > 1 ? " arguments" : " argument"));
+                            "Option '" + optName + "' requires " + std::to_string(flag->num())
+                                + (flag->num() > 1 ? " arguments" : " argument"));
                         return std::nullopt;
+                    }
+
+                    if (!flag->collect()) {
+                        flag->reset();
                     }
 
                     for (size_t i = 0; i < availableArgs; ++i) {
@@ -802,26 +882,36 @@ public:
                     }
                     argIdx += availableArgs;
                 }
+
                 if (flag->halt()) {
-                    args.remaining_.insert(
-                        args.remaining_.end(), argv.begin() + argIdx + 1, argv.end());
+                    detail::debug("halt");
+                    for (size_t i = argIdx + 1; i < argv.size(); ++i) {
+                        detail::debug("remaining: ", argv[i]);
+                        args.remaining_.push_back(argv[i]);
+                    }
                     halted = true;
                     break;
                 }
             } else {
                 bool consumed = false;
                 for (auto& arg : args.positionals_) {
-                    if (arg->size() < arg->max()) {
+                    if (arg->size() == 0 || arg->many()) {
+                        detail::debug("parse ", arg->name());
                         const auto name = "argument '" + arg->name() + "'";
                         if (!parseArg(args, *arg, name, argv[argIdx])) {
                             return std::nullopt;
                         }
+
+                        if (arg->halt()) {
+                            detail::debug("halt");
+                            for (size_t i = argIdx + 1; i < argv.size(); ++i) {
+                                detail::debug("remaining: ", argv[i]);
+                                args.remaining_.push_back(argv[i]);
+                            }
+                            halted = true;
+                        }
+
                         consumed = true;
-                        break;
-                    } else if (arg->halt()) {
-                        args.remaining_.insert(
-                            args.remaining_.end(), argv.begin() + argIdx + 1, argv.end());
-                        halted = true;
                         break;
                     }
                 }
@@ -852,9 +942,9 @@ public:
             return args;
         }
 
-        for (auto& positional : args.positionals_) {
-            if (positional->size() < positional->min()) {
-                error(args, "Missing argument '" + positional->name() + "'");
+        for (auto& arg : args.positionals_) {
+            if (!arg->optional() && arg->size() == 0) {
+                error(args, "Missing argument '" + arg->name() + "'");
                 return std::nullopt;
             }
         }

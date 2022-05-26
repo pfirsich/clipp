@@ -1,9 +1,9 @@
 #include <iostream>
 
-// #define CLI_DEBUG
-#include "cli.hpp"
+// #define CLIPP_DEBUG
+#include "clipp.hpp"
 
-struct ParentArgs : public cli::ArgsBase {
+struct ParentArgs : public clipp::ArgsBase {
     std::optional<std::string> device;
     std::string command;
 
@@ -14,7 +14,7 @@ struct ParentArgs : public cli::ArgsBase {
     }
 };
 
-struct StartArgs : public cli::ArgsBase {
+struct StartArgs : public clipp::ArgsBase {
     std::optional<std::string> power;
     std::string system;
 
@@ -25,7 +25,7 @@ struct StartArgs : public cli::ArgsBase {
     }
 };
 
-struct StopArgs : public cli::ArgsBase {
+struct StopArgs : public clipp::ArgsBase {
     bool force = false;
     std::string system;
 
@@ -38,13 +38,13 @@ struct StopArgs : public cli::ArgsBase {
 
 int main(int argc, char** argv)
 {
-    auto parser = cli::Parser(argv[0]);
+    auto parser = clipp::Parser(argv[0]);
     const auto args = parser.parse<ParentArgs>(argc, argv).value();
     if (args.device) {
         std::cout << "Device: " << *args.device << std::endl;
     }
 
-    auto subParser = cli::Parser(std::string(argv[0]) + " " + args.command);
+    auto subParser = clipp::Parser(std::string(argv[0]) + " " + args.command);
     if (args.command == "start") {
         const auto subArgs = subParser.parse<StartArgs>(args.remaining()).value();
         if (subArgs.power) {
