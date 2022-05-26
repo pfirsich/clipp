@@ -394,3 +394,68 @@ TEST_CASE(R"({ "--vec", "1", "2", "3", "--num", "42" } (VecFlagRange))")
     const auto args = parse<VecFlagRange>({ "--vec", "1", "2", "3", "--num", "42" });
     CHECK(!args);
 }
+
+struct VecParamZeroToInf : public cli::ArgsBase {
+    std::vector<std::string> params;
+
+    void args()
+    {
+        param(params, "param").min(0);
+    }
+};
+
+TEST_CASE(R"({} (VecParamZeroToInf))")
+{
+    const auto args = parse<VecParamZeroToInf>({});
+    REQUIRE(args);
+    CHECK(args->params.size() == 0);
+}
+
+TEST_CASE(R"({ "a" } (VecParamZeroToInf))")
+{
+    const auto args = parse<VecParamZeroToInf>({ "a" });
+    REQUIRE(args);
+    CHECK(args->params.size() == 1);
+    CHECK(args->params[0] == "a");
+}
+
+TEST_CASE(R"({ "a", "b" } (VecParamZeroToInf))")
+{
+    const auto args = parse<VecParamZeroToInf>({ "a", "b" });
+    REQUIRE(args);
+    CHECK(args->params.size() == 2);
+    CHECK(args->params[0] == "a");
+    CHECK(args->params[1] == "b");
+}
+
+struct VecParamOneToInf : public cli::ArgsBase {
+    std::vector<std::string> params;
+
+    void args()
+    {
+        param(params, "param").min(1); // this is default
+    }
+};
+
+TEST_CASE(R"({} (VecParamOneToInf))")
+{
+    const auto args = parse<VecParamOneToInf>({});
+    CHECK(!args);
+}
+
+TEST_CASE(R"({ "a" } (VecParamOneToInf))")
+{
+    const auto args = parse<VecParamOneToInf>({ "a" });
+    REQUIRE(args);
+    CHECK(args->params.size() == 1);
+    CHECK(args->params[0] == "a");
+}
+
+TEST_CASE(R"({ "a", "b" } (VecParamOneToInf))")
+{
+    const auto args = parse<VecParamOneToInf>({ "a", "b" });
+    REQUIRE(args);
+    CHECK(args->params.size() == 2);
+    CHECK(args->params[0] == "a");
+    CHECK(args->params[1] == "b");
+}

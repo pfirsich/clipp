@@ -321,9 +321,9 @@ private:
 
 template <typename T>
 struct Param<std::optional<T>> : public ArgBuilderMixin<Param<std::optional<T>>> {
-    Param(std::optional<T>& value, std::string name, char shortOpt = 0)
+    Param(std::optional<T>& value, std::string name)
         // For some reason the template args need to be specified explicitly
-        : ArgBuilderMixin<Param<std::optional<T>>>(std::move(name), Value<T>::typeName, shortOpt)
+        : ArgBuilderMixin<Param<std::optional<T>>>(std::move(name), Value<T>::typeName)
         , value_(value)
     {
         this->min(0);
@@ -343,6 +343,32 @@ struct Param<std::optional<T>> : public ArgBuilderMixin<Param<std::optional<T>>>
 
 private:
     std::optional<T>& value_;
+};
+
+template <typename T>
+struct Param<std::vector<T>> : public ArgBuilderMixin<Param<std::vector<T>>> {
+    Param(std::vector<T>& values, std::string name)
+        // For some reason the template args need to be specified explicitly
+        : ArgBuilderMixin<Param<std::vector<T>>>(std::move(name), Value<T>::typeName)
+        , values_(values)
+    {
+        this->min(1);
+        this->max(infinity);
+    }
+
+    bool parse(std::string_view str) override
+    {
+        const auto res = Value<T>::parse(str);
+        if (!res) {
+            return false;
+        }
+        values_.push_back(res.value());
+        this->size_++;
+        return true;
+    }
+
+private:
+    std::vector<T>& values_;
 };
 
 struct ArgsBase {
