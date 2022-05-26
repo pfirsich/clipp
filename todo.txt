@@ -1,10 +1,10 @@
 * optional Param
+* vector Flag
 * vector Param
-* numbers
+* Negative numbers
 * Flag containing '=': --flag=0, maybe -f=0?
 * Concatenated flag and value: -f0 (what should be the rules here?)
-* Custom data types: You could add custom Flag/Param specializations, but you would have to add one for T, optional<T>, vector<T> times two (Flag and Param). It would be cool if you could just specify the parsing function once.
-* Custom validation functions?
+* Custom validation functions? (e.g. validate even integers)
 * More Examples
 * How to test --help, --version and error messages?
 * Probably a million things in help/usage strings

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cassert>
+#include <charconv>
 #include <cstdio>
 #include <limits>
 #include <memory>
@@ -14,6 +15,18 @@
 #endif
 
 namespace cli {
+namespace detail {
+    template <typename... Args>
+    void debug([[maybe_unused]] Args&&... args)
+    {
+#ifdef CLI_DEBUG
+        std::stringstream ss;
+        (ss << ... << args);
+        std::puts(ss.str().c_str());
+#endif
+    }
+}
+
 // For all intents and purposes this value is infinity
 constexpr size_t infinity = std::numeric_limits<size_t>::max();
 
@@ -140,6 +153,43 @@ struct ArgBuilderMixin : public ArgBase {
 };
 
 template <typename T>
+struct Value;
+
+template <>
+struct Value<std::string> {
+    static std::optional<std::string> parse(std::string_view str)
+    {
+        return std::string(str);
+    }
+};
+
+template <>
+struct Value<int64_t> {
+    static std::optional<int64_t> parse(std::string_view str)
+    {
+        int64_t val;
+        const auto res = std::from_chars(str.data(), str.data() + str.size(), val);
+        if (res.ec != std::errc() || res.ptr < str.data() + str.size()) {
+            return std::nullopt;
+        }
+        return val;
+    }
+};
+
+template <>
+struct Value<double> {
+    static std::optional<double> parse(std::string_view str)
+    {
+        double val;
+        const auto res = std::from_chars(str.data(), str.data() + str.size(), val);
+        if (res.ec != std::errc() || res.ptr < str.data() + str.size()) {
+            return std::nullopt;
+        }
+        return val;
+    }
+};
+
+template <typename T>
 struct Flag;
 
 // A simple flag like. "--foo" => v = true
@@ -183,46 +233,52 @@ private:
 };
 
 // An optional flag. "--foo cool" => v = cool
-template <>
-struct Flag<std::optional<std::string>> : public ArgBuilderMixin<Flag<std::optional<std::string>>> {
-    Flag(std::optional<std::string>& value, std::string name, char shortOpt = 0)
-        : ArgBuilderMixin(std::move(name), shortOpt)
+template <typename T>
+struct Flag<std::optional<T>> : public ArgBuilderMixin<Flag<std::optional<T>>> {
+    Flag(std::optional<T>& value, std::string name, char shortOpt = 0)
+        // For some reason the template args need to be specified explicitly
+        : ArgBuilderMixin<Flag<std::optional<T>>>(std::move(name), shortOpt)
         , value_(value)
     {
-        num(1);
+        this->num(1);
     }
 
     bool parse(std::string_view str) override
     {
-        value_ = std::string(str);
+        const auto res = Value<T>::parse(str);
+        if (!res) {
+            return false;
+        }
+        value_ = res.value();
         return true;
     }
 
 private:
-    std::optional<std::string>& value_;
+    std::optional<T>& value_;
 };
 
 template <typename T>
-struct Param;
-
-template <>
-struct Param<std::string> : public ArgBuilderMixin<Param<std::string>> {
-    Param(std::string& value, std::string name)
-        : ArgBuilderMixin(std::move(name))
+struct Param : public ArgBuilderMixin<Param<T>> {
+    Param(T& value, std::string name)
+        : ArgBuilderMixin<Param<T>>(std::move(name))
         , value_(value)
     {
-        num(1);
+        this->num(1);
     }
 
     bool parse(std::string_view str) override
     {
-        value_ = std::string(str);
-        size_++;
+        const auto res = Value<T>::parse(str);
+        if (!res) {
+            return false;
+        }
+        value_ = res.value();
+        this->size_++;
         return true;
     }
 
 private:
-    std::string& value_;
+    T& value_;
 };
 
 struct SubCommandTag { };
@@ -268,18 +324,6 @@ struct ArgsBase {
         flags_.emplace_back(arg);
         return *arg;
     }
-
-    /*// An optional flag. "--foo 42" => v = 42
-    Arg &flag(std::optional<int64_t> &v, const std::string & name,
-              char shortOpt = 0);
-
-    // An optional flag. "--foo 42" => v = 42
-    Arg &flag(std::optional<uint64_t> &v, const std::string & name,
-              char shortOpt = 0);
-
-    // An optional flag. "--foo 42.00" => v = 42.0
-    Arg &flag(std::optional<double> &v, const std::string & name, char shortOpt =
-    0);*/
 
     /*// Specify multiple times. "--foo 42 --foo 42 --foo 42" => v = { 42, 43, 44
     } Arg &flag(std::vector<int64_t> &v, const std::string & name, char shortOpt =
@@ -395,18 +439,6 @@ private:
     std::vector<std::unique_ptr<ArgBase>> flags_;
     std::vector<std::unique_ptr<ArgBase>> positionals_;
 };
-
-namespace detail {
-    template <typename... Args>
-    void debug([[maybe_unused]] Args&&... args)
-    {
-#ifdef CLI_DEBUG
-        std::stringstream ss;
-        (ss << ... << args);
-        std::puts(ss.str().c_str());
-#endif
-    }
-}
 
 struct Parser {
     Parser(std::string programName)
@@ -627,14 +659,14 @@ private:
                     }
                     valStr.append(arg.choices()[i]);
                 }
-                error(
-                    "Invalid value for " + name + ": '" + argStr + "'. Possible values: " + valStr);
+                error("Invalid value '" + argStr + "' for " + name + ": '" + argStr
+                    + "'. Possible values: " + valStr);
                 return false;
             }
         }
 
         if (!arg.parse(argStr)) {
-            error("Invalid value for " + name);
+            error("Invalid value '" + argStr + "' for " + name);
             return false;
         }
         return true;
