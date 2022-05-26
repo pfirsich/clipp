@@ -116,14 +116,7 @@ struct ArgBuilderMixin : public ArgBase {
         return derived();
     }
 
-    // only relevant for flags
-    Derived& required()
-    {
-        if (min_ == 0)
-            return min(1);
-        return derived();
-    }
-
+    // Only relevant for params
     Derived& optional()
     {
         return min(0);
