@@ -264,3 +264,10 @@ TEST_CASE(R"({ "--version" } (Args))")
     CHECK(exitStatus == 0);
     CHECK(output->output == "0.1\n");
 }
+
+TEST_CASE(R"({ "--help" } (Args))")
+{
+    const auto args = parse<Args>({ "--version" });
+    CHECK(args);
+    CHECK(exitStatus == 0);
+}

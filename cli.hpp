@@ -77,9 +77,9 @@ struct ArgBase {
         return size_;
     }
 
-    bool subCommand() const
+    bool halt() const
     {
-        return subCommand_;
+        return halt_;
     }
 
     virtual bool parse(std::string_view) = 0;
@@ -92,7 +92,7 @@ protected:
     std::string help_;
     std::vector<std::string> choices_;
     size_t size_ = 0;
-    bool subCommand_ = false;
+    bool halt_ = false;
 };
 
 template <typename Derived>
@@ -145,6 +145,12 @@ struct ArgBuilderMixin : public ArgBase {
     Derived& num(size_t n)
     {
         return min(n).max(n);
+    }
+
+    Derived& halt(bool halt = true)
+    {
+        halt_ = halt;
+        return derived();
     }
 
     Derived& derived()
@@ -282,37 +288,6 @@ private:
     T& value_;
 };
 
-struct SubCommandTag { };
-
-template <>
-struct Param<SubCommandTag> : public ArgBuilderMixin<Param<SubCommandTag>> {
-    Param(std::string& command, std::vector<std::string>& remainingArgs, std::string name)
-        : ArgBuilderMixin(std::move(name))
-        , command_(command)
-        , remainingArgs_(remainingArgs)
-    {
-        num(1);
-        subCommand_ = true;
-    }
-
-    bool parse(std::string_view str) override
-    {
-        if (!gotCommand_) {
-            command_ = std::string(str);
-            gotCommand_ = true;
-        } else {
-            remainingArgs_.push_back(std::string(str));
-        }
-        size_++;
-        return true;
-    }
-
-private:
-    std::string& command_;
-    std::vector<std::string>& remainingArgs_;
-    bool gotCommand_ = false;
-};
-
 struct ArgsBase {
     template <typename T>
     auto& flag(T& v, const std::string& name, char shortOpt = 0)
@@ -366,19 +341,16 @@ struct ArgsBase {
     Arg &param(std::vector<double> &v, const std::string & name);*/
     // Arg &param(std::vector<std::string> &v, const std::string & name);
 
-    auto& subCommand(
-        std::string& command, std::vector<std::string>& remainingArgs, const std::string& name)
-    {
-        auto arg = new Param<SubCommandTag>(command, remainingArgs, name);
-        positionals_.emplace_back(arg);
-        return *arg;
-    }
-
     // Add a way for custom types. Need custom output type and custom parse
     // function (also error messages)
 
+    const auto& remaining() const
+    {
+        return remaining_;
+    }
+
     // FROM PARSER
-    std::vector<std::unique_ptr<ArgBase>>& flags()
+    auto& flags()
     {
         return flags_;
     }
@@ -403,9 +375,14 @@ struct ArgsBase {
         return nullptr;
     }
 
-    std::vector<std::unique_ptr<ArgBase>>& positionals()
+    auto& positionals()
     {
         return positionals_;
+    }
+
+    auto& remaining()
+    {
+        return remaining_;
     }
 
 private:
@@ -439,6 +416,7 @@ private:
 
     std::vector<std::unique_ptr<ArgBase>> flags_;
     std::vector<std::unique_ptr<ArgBase>> positionals_;
+    std::vector<std::string> remaining_;
 };
 
 struct OutputBase {
@@ -521,12 +499,12 @@ struct Parser {
 
         bool help = false;
         if (addHelp_) {
-            at.flag(help, "help", 'h').help("Show this help message and exit");
+            at.flag(help, "help", 'h').halt().help("Show this help message and exit");
         }
 
         bool versionFlag = false;
         if (!version_.empty()) {
-            at.flag(versionFlag, "version").help("Show version string and exit");
+            at.flag(versionFlag, "version").halt().help("Show version string and exit");
         }
 
         at.args();
@@ -536,6 +514,7 @@ struct Parser {
         }
 
         bool afterPosDelim = false;
+        bool halted = false;
         for (size_t argIdx = 0; argIdx < args.size(); ++argIdx) {
             std::string_view arg = args[argIdx];
             detail::debug("arg: '", arg, "'");
@@ -618,6 +597,12 @@ struct Parser {
                     }
                     argIdx += availableArgs;
                 }
+                if (flag->halt()) {
+                    at.remaining().insert(
+                        at.remaining().end(), args.begin() + argIdx + 1, args.end());
+                    halted = true;
+                    break;
+                }
             } else {
                 bool consumed = false;
                 for (auto& arg : at.positionals()) {
@@ -626,18 +611,17 @@ struct Parser {
                         if (!parseArg(*arg, name, args[argIdx])) {
                             return std::nullopt;
                         }
-
-                        if (arg->subCommand()) {
-                            // consume all remaining arguments into arg
-                            for (size_t i = argIdx + 1; i < args.size(); ++i) {
-                                const auto res = arg->parse(args[i]);
-                                assert(res);
-                            }
-                            argIdx = args.size();
-                        }
                         consumed = true;
                         break;
+                    } else if (arg->halt()) {
+                        at.remaining().insert(
+                            at.remaining().end(), args.begin() + argIdx + 1, args.end());
+                        halted = true;
+                        break;
                     }
+                }
+                if (halted) {
+                    break;
                 }
                 if (!consumed) {
                     error("Superfluous argument '" + args[argIdx] + "'");
@@ -657,6 +641,10 @@ struct Parser {
             output_->out("\n");
             exit_(0);
             return at; // exit_ might return
+        }
+
+        if (halted) {
+            return at;
         }
 
         for (auto& positional : at.positionals()) {
