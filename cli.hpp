@@ -32,8 +32,9 @@ namespace detail {
 constexpr size_t infinity = std::numeric_limits<size_t>::max();
 
 struct ArgBase {
-    ArgBase(std::string name, char shortOpt = 0)
+    ArgBase(std::string name, std::string_view typeName, char shortOpt = 0)
         : name_(std::move(name))
+        , typeName_(std::move(typeName))
         , shortOpt_(shortOpt)
     {
     }
@@ -45,6 +46,11 @@ struct ArgBase {
     const std::string& name() const
     {
         return name_;
+    }
+
+    std::string_view typeName() const
+    {
+        return typeName_;
     }
 
     char shortOpt() const
@@ -86,6 +92,7 @@ struct ArgBase {
 
 protected:
     std::string name_;
+    std::string_view typeName_;
     char shortOpt_ = 0;
     size_t min_ = 0;
     size_t max_ = 0;
@@ -97,8 +104,8 @@ protected:
 
 template <typename Derived>
 struct ArgBuilderMixin : public ArgBase {
-    ArgBuilderMixin(std::string name, char shortOpt = 0)
-        : ArgBase(std::move(name), shortOpt)
+    ArgBuilderMixin(std::string name, std::string_view typeName, char shortOpt = 0)
+        : ArgBase(std::move(name), typeName, shortOpt)
     {
     }
 
@@ -157,6 +164,8 @@ struct Value;
 
 template <>
 struct Value<std::string> {
+    static constexpr std::string_view typeName = "";
+
     static std::optional<std::string> parse(std::string_view str)
     {
         return std::string(str);
@@ -165,6 +174,8 @@ struct Value<std::string> {
 
 template <>
 struct Value<int64_t> {
+    static constexpr std::string_view typeName = "integer";
+
     static std::optional<int64_t> parse(std::string_view str)
     {
         int64_t val;
@@ -178,6 +189,8 @@ struct Value<int64_t> {
 
 template <>
 struct Value<double> {
+    static constexpr std::string_view typeName = "real number";
+
     static std::optional<double> parse(std::string_view str)
     {
         double val;
@@ -196,7 +209,7 @@ struct Flag;
 template <>
 struct Flag<bool> : public ArgBuilderMixin<Flag<bool>> {
     Flag(bool& value, std::string name, char shortOpt = 0)
-        : ArgBuilderMixin(std::move(name), shortOpt)
+        : ArgBuilderMixin(std::move(name), "", shortOpt)
         , value_(value)
     {
     }
@@ -216,7 +229,7 @@ private:
 template <>
 struct Flag<size_t> : public ArgBuilderMixin<Flag<size_t>> {
     Flag(size_t& value, std::string name, char shortOpt = 0)
-        : ArgBuilderMixin(std::move(name), shortOpt)
+        : ArgBuilderMixin(std::move(name), "", shortOpt)
         , value_(value)
     {
     }
@@ -237,7 +250,7 @@ template <typename T>
 struct Flag<std::optional<T>> : public ArgBuilderMixin<Flag<std::optional<T>>> {
     Flag(std::optional<T>& value, std::string name, char shortOpt = 0)
         // For some reason the template args need to be specified explicitly
-        : ArgBuilderMixin<Flag<std::optional<T>>>(std::move(name), shortOpt)
+        : ArgBuilderMixin<Flag<std::optional<T>>>(std::move(name), Value<T>::typeName, shortOpt)
         , value_(value)
     {
         this->num(1);
@@ -261,7 +274,7 @@ template <typename T>
 struct Flag<std::vector<T>> : public ArgBuilderMixin<Flag<std::vector<T>>> {
     Flag(std::vector<T>& values, std::string name, char shortOpt = 0)
         // For some reason the template args need to be specified explicitly
-        : ArgBuilderMixin<Flag<std::vector<T>>>(std::move(name), shortOpt)
+        : ArgBuilderMixin<Flag<std::vector<T>>>(std::move(name), Value<T>::typeName, shortOpt)
         , values_(values)
     {
         this->min(1);
@@ -285,7 +298,7 @@ private:
 template <typename T>
 struct Param : public ArgBuilderMixin<Param<T>> {
     Param(T& value, std::string name)
-        : ArgBuilderMixin<Param<T>>(std::move(name))
+        : ArgBuilderMixin<Param<T>>(std::move(name), Value<T>::typeName)
         , value_(value)
     {
         this->num(1);
@@ -310,7 +323,7 @@ template <typename T>
 struct Param<std::optional<T>> : public ArgBuilderMixin<Param<std::optional<T>>> {
     Param(std::optional<T>& value, std::string name, char shortOpt = 0)
         // For some reason the template args need to be specified explicitly
-        : ArgBuilderMixin<Param<std::optional<T>>>(std::move(name), shortOpt)
+        : ArgBuilderMixin<Param<std::optional<T>>>(std::move(name), Value<T>::typeName, shortOpt)
         , value_(value)
     {
         this->min(0);
@@ -345,25 +358,6 @@ struct ArgsBase {
         return *arg;
     }
 
-    /*// Specify multiple times. "--foo 42 --foo 42 --foo 42" => v = { 42, 43, 44
-    } Arg &flag(std::vector<int64_t> &v, const std::string & name, char shortOpt =
-    0);
-
-    // Specify multiple times. "--foo 42 --foo 42 --foo 42" => v = { 42, 43, 44 }
-    Arg &flag(std::vector<uint64_t> &v, const std::string & name, char shortOpt =
-    0);
-
-    // Specify multiple times. "--foo 42.0 --foo 43.0" => v = { 42.0, 43.0 }
-    Arg &flag(std::vector<double> &v, const std::string & name, char shortOpt =
-    0);*/
-
-    // Specify multiple times. "--foo a --foo b" => v = {"a", "b"}
-    /*Arg &flag(std::vector<std::string> &v, const std::string & name,
-              char shortOpt = 0);*/
-
-    /*Arg &param(int64_t &v, const std::string & name);
-    Arg &param(uint64_t &v, const std::string & name);
-    Arg &param(double &v, const std::string & name);*/
     template <typename T>
     auto& param(T& v, const std::string& name)
     {
@@ -373,20 +367,6 @@ struct ArgsBase {
         positionals_.emplace_back(arg);
         return *arg;
     }
-
-    /*Arg &param(std::optional<int64_t> &v, const std::string & name);
-    Arg &param(std::optional<uint64_t> &v, const std::string & name);
-    Arg &param(std::optional<double> &v, const std::string & name);*/
-    // Arg &param(std::optional<std::string> &v, const std::string & name);
-
-    // Specify arguments multiple times
-    /*Arg &param(std::vector<int64_t> &v, const std::string & name);
-    Arg &param(std::vector<uint64_t> &v, const std::string & name);
-    Arg &param(std::vector<double> &v, const std::string & name);*/
-    // Arg &param(std::vector<std::string> &v, const std::string & name);
-
-    // Add a way for custom types. Need custom output type and custom parse
-    // function (also error messages)
 
     const auto& remaining() const
     {
@@ -726,14 +706,18 @@ private:
                     }
                     valStr.append(arg.choices()[i]);
                 }
-                error("Invalid value '" + argStr + "' for " + name + ": '" + argStr
+                error("Invalid value '" + argStr + "' for " + name + " (choice): '" + argStr
                     + "'. Possible values: " + valStr);
                 return false;
             }
         }
 
         if (!arg.parse(argStr)) {
-            error("Invalid value '" + argStr + "' for " + name);
+            std::string message = "Invalid value '" + argStr + "' for " + name;
+            if (!arg.typeName().empty()) {
+                message.append(" (" + std::string(arg.typeName()) + ")");
+            }
+            error(message);
             return false;
         }
         return true;

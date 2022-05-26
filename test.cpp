@@ -215,6 +215,8 @@ enum class MyEnum { A, B, C };
 
 template <>
 struct cli::Value<MyEnum> {
+    static constexpr std::string_view typeName = "MyEnum";
+
     static std::optional<MyEnum> parse(std::string_view str)
     {
         if (str == "a") {
