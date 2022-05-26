@@ -59,6 +59,11 @@ struct ArgBase {
         return size_;
     }
 
+    bool subCommand() const
+    {
+        return subCommand_;
+    }
+
     virtual bool parse(std::string_view) = 0;
 
 protected:
@@ -69,6 +74,7 @@ protected:
     std::string help_;
     std::vector<std::string> choices_;
     size_t size_ = 0;
+    bool subCommand_ = false;
 };
 
 template <typename Derived>
@@ -132,6 +138,7 @@ struct ArgBuilderMixin : public ArgBase {
 template <typename T>
 struct Flag;
 
+// A simple flag like. "--foo" => v = true
 template <>
 struct Flag<bool> : public ArgBuilderMixin<Flag<bool>> {
     Flag(bool& value, std::string name, char shortOpt = 0)
@@ -151,6 +158,7 @@ private:
     bool& value_;
 };
 
+// Counts flags. "-vvvv" => v = 4
 template <>
 struct Flag<size_t> : public ArgBuilderMixin<Flag<size_t>> {
     Flag(size_t& value, std::string name, char shortOpt = 0)
@@ -170,6 +178,7 @@ private:
     size_t& value_;
 };
 
+// An optional flag. "--foo cool" => v = cool
 template <>
 struct Flag<std::optional<std::string>> : public ArgBuilderMixin<Flag<std::optional<std::string>>> {
     Flag(std::optional<std::string>& value, std::string name, char shortOpt = 0)
@@ -212,20 +221,44 @@ private:
     std::string& value_;
 };
 
-struct ArgsBase {
-    // A simple flag like. "--foo" => v = true
-    auto& flag(bool& v, const std::string& name, char shortOpt = 0)
+struct SubCommandTag { };
+
+template <>
+struct Param<SubCommandTag> : public ArgBuilderMixin<Param<SubCommandTag>> {
+    Param(std::string& command, std::vector<std::string>& remainingArgs, std::string name)
+        : ArgBuilderMixin(std::move(name))
+        , command_(command)
+        , remainingArgs_(remainingArgs)
     {
-        // How can I do this nicely without new?
-        auto arg = new Flag<bool>(v, name, shortOpt);
-        flags_.emplace_back(arg);
-        return *arg;
+        num(1);
+        subCommand_ = true;
     }
 
-    // Counts flags. "-vvvv" => v = 4
-    auto& flag(size_t& v, const std::string& name, char shortOpt = 0)
+    bool parse(std::string_view str) override
     {
-        auto arg = new Flag<size_t>(v, name, shortOpt);
+        if (!gotCommand_) {
+            command_ = std::string(str);
+            gotCommand_ = true;
+        } else {
+            remainingArgs_.push_back(std::string(str));
+        }
+        size_++;
+        return true;
+    }
+
+private:
+    std::string& command_;
+    std::vector<std::string>& remainingArgs_;
+    bool gotCommand_ = false;
+};
+
+struct ArgsBase {
+
+    template <typename T>
+    auto& flag(T& v, const std::string& name, char shortOpt = 0)
+    {
+        // How can I do this nicely without new?
+        auto arg = new Flag<std::decay_t<T>>(v, name, shortOpt);
         flags_.emplace_back(arg);
         return *arg;
     }
@@ -241,14 +274,6 @@ struct ArgsBase {
     // An optional flag. "--foo 42.00" => v = 42.0
     Arg &flag(std::optional<double> &v, const std::string & name, char shortOpt =
     0);*/
-
-    // An optional flag. "--foo cool" => v = cool
-    auto& flag(std::optional<std::string>& v, const std::string& name, char shortOpt = 0)
-    {
-        auto arg = new Flag<std::optional<std::string>>(v, name, shortOpt);
-        flags_.emplace_back(arg);
-        return *arg;
-    }
 
     /*// Specify multiple times. "--foo 42 --foo 42 --foo 42" => v = { 42, 43, 44
     } Arg &flag(std::vector<int64_t> &v, const std::string & name, char shortOpt =
@@ -269,9 +294,10 @@ struct ArgsBase {
     /*Arg &param(int64_t &v, const std::string & name);
     Arg &param(uint64_t &v, const std::string & name);
     Arg &param(double &v, const std::string & name);*/
-    auto& param(std::string& v, const std::string& name)
+    template <typename T>
+    auto& param(T& v, const std::string& name)
     {
-        auto arg = new Param<std::string>(v, name);
+        auto arg = new Param<std::decay_t<T>>(v, name);
         positionals_.emplace_back(arg);
         return *arg;
     }
@@ -287,7 +313,13 @@ struct ArgsBase {
     Arg &param(std::vector<double> &v, const std::string & name);*/
     // Arg &param(std::vector<std::string> &v, const std::string & name);
 
-    void remaining(std::vector<std::string>& args);
+    auto& subCommand(
+        std::string& command, std::vector<std::string>& remainingArgs, const std::string& name)
+    {
+        auto arg = new Param<SubCommandTag>(command, remainingArgs, name);
+        positionals_.emplace_back(arg);
+        return *arg;
+    }
 
     // Add a way for custom types. Need custom output type and custom parse
     // function (also error messages)
@@ -326,7 +358,6 @@ struct ArgsBase {
 private:
     std::vector<std::unique_ptr<ArgBase>> flags_;
     std::vector<std::unique_ptr<ArgBase>> positionals_;
-    bool error_ = false;
 };
 
 namespace detail {
@@ -336,7 +367,7 @@ namespace detail {
 #ifdef CLI_DEBUG
         std::stringstream ss;
         (ss << ... << args);
-        puts(ss.str().c_str());
+        std::puts(ss.str().c_str());
 #endif
     }
 }
@@ -483,11 +514,20 @@ struct Parser {
                 }
             } else {
                 bool consumed = false;
-                for (auto& positional : at.positionals()) {
-                    if (positional->size() < positional->max()) {
-                        const auto name = "argument '" + positional->name() + "'";
-                        if (!parseArg(*positional, name, args[argIdx])) {
+                for (auto& arg : at.positionals()) {
+                    if (arg->size() < arg->max()) {
+                        const auto name = "argument '" + arg->name() + "'";
+                        if (!parseArg(*arg, name, args[argIdx])) {
                             return std::nullopt;
+                        }
+
+                        if (arg->subCommand()) {
+                            // consume all remaining arguments into arg
+                            for (size_t i = argIdx + 1; i < args.size(); ++i) {
+                                const auto res = arg->parse(args[i]);
+                                assert(res);
+                            }
+                            argIdx = args.size();
                         }
                         consumed = true;
                         break;
@@ -501,12 +541,12 @@ struct Parser {
         }
 
         if (help) {
-            puts(getHelp(at).c_str());
+            std::fputs(getHelp(at).c_str(), stdout);
             std::exit(0);
         }
 
         if (versionFlag) {
-            puts(version_.c_str());
+            std::puts(version_.c_str());
             std::exit(0);
         }
 
