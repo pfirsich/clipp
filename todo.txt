@@ -1,12 +1,12 @@
 * optional Param
 * vector Flag
 * vector Param
-* Negative numbers
 * Flag containing '=': --flag=0, maybe -f=0?
+* Negative numbers
 * Concatenated flag and value: -f0 (what should be the rules here?)
 * Custom validation functions? (e.g. validate even integers)
 * More Examples
-* How to test --help, --version and error messages?
+* Test help and usage
 * Probably a million things in help/usage strings
 * remaining() - just enable this in parser and collect them instead of error-ing
 * Split implementations and internal stuff to the bottom of the file?

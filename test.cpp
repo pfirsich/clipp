@@ -23,12 +23,44 @@ struct Args : public cli::ArgsBase {
     }
 };
 
+struct StringOutput : cli::OutputBase {
+    void out(std::string_view str)
+    {
+        output.append(str);
+    }
+
+    void err(std::string_view str)
+    {
+        error.append(str);
+    }
+
+    void clear()
+    {
+        output.clear();
+        error.clear();
+    }
+
+    std::string output;
+    std::string error;
+};
+
+std::shared_ptr<StringOutput> output;
+int exitStatus;
+
 template <typename ArgsType>
 auto parse(std::vector<std::string> args)
 {
+    if (!output) {
+        output = std::make_shared<StringOutput>();
+    }
+    output->clear();
+    exitStatus = 0;
+
     auto parser = cli::Parser("test");
     parser.version("0.1");
-    parser.exitOnError(false);
+    parser.output(output);
+    parser.exit([](int status) { exitStatus = status; });
+
     return parser.parse<ArgsType>(args);
 }
 
@@ -41,7 +73,7 @@ TEST_CASE(R"(no args (Args))")
 TEST_CASE(R"({ "pos" } (Args))")
 {
     const auto args = parse<Args>({ "pos" });
-    CHECK(args);
+    REQUIRE(args);
     CHECK(!args->foo);
     CHECK(!args->opt);
     CHECK(args->verbose == 0);
@@ -51,7 +83,7 @@ TEST_CASE(R"({ "pos" } (Args))")
 TEST_CASE(R"({ "--foo", "pos" } (Args))")
 {
     const auto args = parse<Args>({ "--foo", "pos" });
-    CHECK(args);
+    REQUIRE(args);
     CHECK(args->foo);
     CHECK(!args->opt);
     CHECK(args->verbose == 0);
@@ -61,7 +93,7 @@ TEST_CASE(R"({ "--foo", "pos" } (Args))")
 TEST_CASE(R"({ "pos", "--foo" } (Args))")
 {
     const auto args = parse<Args>({ "pos", "--foo" });
-    CHECK(args);
+    REQUIRE(args);
     CHECK(args->foo);
     CHECK(!args->opt);
     CHECK(args->verbose == 0);
@@ -71,7 +103,7 @@ TEST_CASE(R"({ "pos", "--foo" } (Args))")
 TEST_CASE(R"({ "-fvvv", "pos" } (Args))")
 {
     const auto args = parse<Args>({ "-fvvv", "pos" });
-    CHECK(args);
+    REQUIRE(args);
     CHECK(args->foo);
     CHECK(!args->opt);
     CHECK(args->verbose == 3);
@@ -87,7 +119,7 @@ TEST_CASE(R"({ "--opt" } (Args))")
 TEST_CASE(R"({ "-fvvv", "--opt", "optval", "--foo" } (Args))")
 {
     const auto args = parse<Args>({ "-fvvv", "--opt", "optval", "pos" });
-    CHECK(args);
+    REQUIRE(args);
     CHECK(args->foo);
     CHECK(args->opt);
     CHECK(args->opt.value() == "optval");
@@ -98,7 +130,7 @@ TEST_CASE(R"({ "-fvvv", "--opt", "optval", "--foo" } (Args))")
 TEST_CASE(R"({ "-fvvvo", "optval", "pos" } (Args))")
 {
     const auto args = parse<Args>({ "-fvvvo", "optval", "pos" });
-    CHECK(args);
+    REQUIRE(args);
     CHECK(args->foo);
     CHECK(args->opt);
     CHECK(args->opt.value() == "optval");
@@ -122,7 +154,7 @@ TEST_CASE(R"({ "--number", "42x", "pos" } (Args))")
 TEST_CASE(R"({ "--number", "42", "pos" } (Args))")
 {
     const auto args = parse<Args>({ "--number", "42", "pos" });
-    CHECK(args);
+    REQUIRE(args);
     CHECK(!args->foo);
     CHECK(!args->opt);
     CHECK(args->verbose == 0);
@@ -139,14 +171,14 @@ TEST_CASE(R"({ "--fnum", "foo", "pos" } (Args))")
 TEST_CASE(R"({ "--fnum", "42", "pos" } (Args))")
 {
     const auto args = parse<Args>({ "--fnum", "42", "pos" });
-    CHECK(args);
+    REQUIRE(args);
     CHECK(*args->fnum == 42.0);
 }
 
 TEST_CASE(R"({ "--fnum", "42.542", "pos" } (Args))")
 {
     const auto args = parse<Args>({ "--fnum", "42.542", "pos" });
-    CHECK(args);
+    REQUIRE(args);
     CHECK(std::fabs(*args->fnum - 42.542) < 1e-8);
 }
 
@@ -162,14 +194,14 @@ struct OptParam : public cli::ArgsBase {
 TEST_CASE(R"(no args (OptParam))")
 {
     const auto args = parse<OptParam>({});
-    CHECK(args);
+    REQUIRE(args);
     CHECK(args->pos == "def");
 }
 
 TEST_CASE(R"({ "bar" } (OptParam))")
 {
     const auto args = parse<OptParam>({ "bar" });
-    CHECK(args);
+    REQUIRE(args);
     CHECK(args->pos == "bar");
 }
 
@@ -214,20 +246,21 @@ TEST_CASE(R"({ "foo" } (CustomType))")
 TEST_CASE(R"({ "a" } (CustomType))")
 {
     const auto args = parse<CustomType>({ "a" });
-    CHECK(args);
+    REQUIRE(args);
     CHECK(args->val == MyEnum::A);
 }
 
 TEST_CASE(R"({ "c" } (CustomType))")
 {
     const auto args = parse<CustomType>({ "c" });
-    CHECK(args);
+    REQUIRE(args);
     CHECK(args->val == MyEnum::C);
 }
 
-// How to test help and version (which exit)?
-/* TEST_CASE(R"({ "--help" } (OptParam))")
+TEST_CASE(R"({ "--version" } (Args))")
 {
-    const auto args = parse<Args>({ "--help" });
-    CHECK(!args);
-} */
+    const auto args = parse<Args>({ "--version" });
+    CHECK(args);
+    CHECK(exitStatus == 0);
+    CHECK(output->output == "0.1\n");
+}

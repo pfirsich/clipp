@@ -3,6 +3,7 @@
 #include <cassert>
 #include <charconv>
 #include <cstdio>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -440,9 +441,29 @@ private:
     std::vector<std::unique_ptr<ArgBase>> positionals_;
 };
 
+struct OutputBase {
+    virtual ~OutputBase() = default;
+    virtual void out(std::string_view) = 0;
+    virtual void err(std::string_view) = 0;
+};
+
+struct StdOutErr : public OutputBase {
+    void out(std::string_view str) override
+    {
+        std::fwrite(str.data(), 1, str.size(), stdout);
+    }
+
+    void err(std::string_view str) override
+    {
+        std::fwrite(str.data(), 1, str.size(), stderr);
+    }
+};
+
 struct Parser {
     Parser(std::string programName)
         : programName_(std::move(programName))
+        , output_(std::make_shared<StdOutErr>())
+        , exit_([](int status) { std::exit(status); })
     {
     }
 
@@ -479,6 +500,17 @@ struct Parser {
     void helpOffset(size_t helpOffset)
     {
         helpOffset_ = helpOffset;
+    }
+
+    // These two are mostly for testing, but maybe they are useful for other stuff
+    void output(std::shared_ptr<OutputBase> output)
+    {
+        output_ = std::move(output);
+    }
+
+    void exit(std::function<void(int)> exit)
+    {
+        exit_ = std::move(exit);
     }
 
     template <typename ArgsType>
@@ -615,13 +647,16 @@ struct Parser {
         }
 
         if (help) {
-            std::fputs(getHelp(at).c_str(), stdout);
-            std::exit(0);
+            output_->out(getHelp(at));
+            exit_(0);
+            return at; // exit_ might return
         }
 
         if (versionFlag) {
-            std::puts(version_.c_str());
-            std::exit(0);
+            output_->out(version_);
+            output_->out("\n");
+            exit_(0);
+            return at; // exit_ might return
         }
 
         for (auto& positional : at.positionals()) {
@@ -674,15 +709,15 @@ private:
 
     void error(const std::string& message)
     {
-        std::fputs(message.c_str(), stderr);
-        std::fputs("\n", stderr);
+        output_->err(message);
+        output_->err("\n");
         if (!usage_.empty()) {
-            std::fputs("Usage: ", stderr);
-            std::fputs(usage_.c_str(), stderr);
-            std::fputs("\n", stderr);
+            output_->err("Usage: ");
+            output_->err(usage_);
+            output_->err("\n");
         }
         if (exitOnError_) {
-            std::exit(1);
+            exit_(1);
         }
     }
 
@@ -839,5 +874,7 @@ private:
     bool addHelp_ = true;
     bool exitOnError_ = true;
     size_t helpOffset_ = 40;
+    std::shared_ptr<OutputBase> output_;
+    std::function<void(int)> exit_;
 };
 }
