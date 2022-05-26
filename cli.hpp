@@ -370,6 +370,7 @@ struct Parser {
     template <typename ArgsType>
     std::optional<ArgsType> parse(const std::vector<std::string>& args)
     {
+        detail::debug(">>> parse");
         ArgsType at;
         at.args();
 
@@ -454,6 +455,7 @@ struct Parser {
                             return std::nullopt;
                         }
                     }
+                    argIdx += availableArgs;
                 }
             } else {
                 for (auto& positional : at.positionals()) {

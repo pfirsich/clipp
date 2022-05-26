@@ -7,6 +7,5 @@
 * Custom data types
 * Help text
 * Usage on error
-* Tests
 * Examples (git like)
 * remaining()

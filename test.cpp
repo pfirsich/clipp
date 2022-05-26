@@ -27,7 +27,7 @@ auto parse(std::vector<std::string> args)
     return parser.parse<ArgsType>(args);
 }
 
-TEST_CASE("no arg (Args)s")
+TEST_CASE(R"(no args (Args))")
 {
     const auto args = parse<Args>({});
     CHECK(!args);
@@ -60,6 +60,44 @@ TEST_CASE(R"({ "pos", "--foo" } (Args))")
     CHECK(args->foo);
     CHECK(!args->opt);
     CHECK(args->verbose == 0);
+    CHECK(args->pos == "pos");
+}
+
+TEST_CASE(R"({ "-fvvv", "pos" } (Args))")
+{
+    const auto args = parse<Args>({ "-fvvv", "pos" });
+    CHECK(args);
+    CHECK(args->foo);
+    CHECK(!args->opt);
+    CHECK(args->verbose == 3);
+    CHECK(args->pos == "pos");
+}
+
+TEST_CASE(R"({ "--opt" } (Args))")
+{
+    const auto args = parse<Args>({ "--opt" });
+    CHECK(!args);
+}
+
+TEST_CASE(R"({ "-fvvv", "--opt", "optval", "--foo" } (Args))")
+{
+    const auto args = parse<Args>({ "-fvvv", "--opt", "optval", "pos" });
+    CHECK(args);
+    CHECK(args->foo);
+    CHECK(args->opt);
+    CHECK(args->opt.value() == "optval");
+    CHECK(args->verbose == 3);
+    CHECK(args->pos == "pos");
+}
+
+TEST_CASE(R"({ "-fvvvo", "optval", "pos" } (Args))")
+{
+    const auto args = parse<Args>({ "-fvvvo", "optval", "pos" });
+    CHECK(args);
+    CHECK(args->foo);
+    CHECK(args->opt);
+    CHECK(args->opt.value() == "optval");
+    CHECK(args->verbose == 3);
     CHECK(args->pos == "pos");
 }
 
