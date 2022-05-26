@@ -182,6 +182,50 @@ TEST_CASE(R"({ "--fnum", "42.542", "pos" } (Args))")
     CHECK(std::fabs(*args->fnum - 42.542) < 1e-8);
 }
 
+TEST_CASE(R"({ "--number=5", "pos" } (Args))")
+{
+    const auto args = parse<Args>({ "--number=5", "pos" });
+    CAPTURE(output->error);
+    REQUIRE(args);
+    CHECK(args->number);
+    CHECK(args->number.value() == 5);
+}
+
+TEST_CASE(R"({ "--number=", "pos" } (Args))")
+{
+    const auto args = parse<Args>({ "--number=", "pos" });
+    CHECK(!args);
+}
+
+TEST_CASE(R"({ "-fn=6", "pos" } (Args))")
+{
+    const auto args = parse<Args>({ "-fn=6", "pos" });
+    CAPTURE(output->error);
+    REQUIRE(args);
+    CHECK(args->foo);
+    CHECK(args->number);
+    CHECK(args->number.value() == 6);
+}
+
+TEST_CASE(R"({ "--opt=", "pos" } (Args))")
+{
+    const auto args = parse<Args>({ "--opt=", "pos" });
+    CAPTURE(output->error);
+    REQUIRE(args);
+    CHECK(args->opt);
+    CHECK(args->opt.value() == "");
+}
+
+TEST_CASE(R"({ "-fo=", "pos" } (Args))")
+{
+    const auto args = parse<Args>({ "-fo=", "pos" });
+    CAPTURE(output->error);
+    REQUIRE(args);
+    CHECK(args->foo);
+    CHECK(args->opt);
+    CHECK(args->opt.value() == "");
+}
+
 struct OptParam : public clipp::ArgsBase {
     std::string pos = "def";
 

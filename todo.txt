@@ -1,10 +1,11 @@
 * Rethink terminology: "args", "arg", "params", "flags"
-* Flag containing '=': --flag=0, maybe -f=0?
 * README / Docs
 * Examples
 * Negative numbers
-* Concatenated flag and value: -f0 (what should be the rules here?)
+* Concatenated flag and value: -f0 (what should be the rules here?). Wanting to support number flags mags this tricky.
+* Allow non-optional after "many", i.e. `source [source..] dest` (for e.g. `cp`).
+  This probably means I need to add backtracking and it might be tricky (e.g. `[cool..] [okay..] [bad..]`)
+* Allow `--` to terminate sequences of many params, e.g. `joel einstein -- jesus -- yourmom` for `[cool..] [okay..] [bad..]`
 * Test help and usage
-* Probably a million things in help/usage strings
 * Make check for superfluous arguments optional and collect to remaining() instead
-* Split implementations and internal stuff to the bottom of the file?
+* Split implementations and internal stuff to the bottom of the file? Move some code into a single source file?

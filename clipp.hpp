@@ -775,7 +775,7 @@ public:
     }
 
     template <typename Args>
-    std::optional<Args> parse(const std::vector<std::string>& argv)
+    std::optional<Args> parse(std::vector<std::string> argv)
     {
         static_assert(std::is_base_of_v<ArgsBase, Args>);
         detail::debug(">>> parse");
@@ -801,9 +801,16 @@ public:
             detail::debug("arg: '", arg, "'");
 
             if (!afterPosDelim && arg.size() > 1 && arg[0] == '-') {
+                // Kind of hacky, but the "clean" but this is very simple and correct
+                const auto eq = arg.find('=');
+                if (eq != std::string_view::npos) {
+                    argv.insert(argv.begin() + argIdx + 1, std::string(arg.substr(eq + 1)));
+                    argv[argIdx] = std::string(arg.substr(0, eq));
+                    arg = argv[argIdx];
+                }
+
                 detail::FlagBase* flag = nullptr;
                 std::string optName;
-
                 if (arg[1] == '-') {
                     if (arg == "--") {
                         afterPosDelim = true;
