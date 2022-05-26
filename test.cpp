@@ -271,3 +271,39 @@ TEST_CASE(R"({ "--help" } (Args))")
     CHECK(args);
     CHECK(exitStatus == 0);
 }
+
+struct StdOptParam : public cli::ArgsBase {
+    int64_t x = 1000;
+    std::optional<int64_t> y;
+
+    void args()
+    {
+        param(x, "x").optional();
+        param(y, "y");
+    }
+};
+
+TEST_CASE(R"({} (StdOptParam))")
+{
+    const auto args = parse<StdOptParam>({});
+    REQUIRE(args);
+    CHECK(args->x == 1000);
+    CHECK(!args->y);
+}
+
+TEST_CASE(R"({ "42" } (StdOptParam))")
+{
+    const auto args = parse<StdOptParam>({ "42" });
+    REQUIRE(args);
+    CHECK(args->x == 42);
+    CHECK(!args->y);
+}
+
+TEST_CASE(R"({ "42", "42" } (StdOptParam))")
+{
+    const auto args = parse<StdOptParam>({ "42", "42" });
+    REQUIRE(args);
+    CHECK(args->x == 42);
+    CHECK(args->y);
+    CHECK(args->y.value() == 42);
+}

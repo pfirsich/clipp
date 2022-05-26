@@ -1,4 +1,3 @@
-* optional Param
 * vector Flag
 * vector Param
 * Flag containing '=': --flag=0, maybe -f=0?

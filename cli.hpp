@@ -288,6 +288,32 @@ private:
     T& value_;
 };
 
+template <typename T>
+struct Param<std::optional<T>> : public ArgBuilderMixin<Param<std::optional<T>>> {
+    Param(std::optional<T>& value, std::string name, char shortOpt = 0)
+        // For some reason the template args need to be specified explicitly
+        : ArgBuilderMixin<Param<std::optional<T>>>(std::move(name), shortOpt)
+        , value_(value)
+    {
+        this->min(0);
+        this->max(1);
+    }
+
+    bool parse(std::string_view str) override
+    {
+        const auto res = Value<T>::parse(str);
+        if (!res) {
+            return false;
+        }
+        value_ = res.value();
+        this->size_++;
+        return true;
+    }
+
+private:
+    std::optional<T>& value_;
+};
+
 struct ArgsBase {
     template <typename T>
     auto& flag(T& v, const std::string& name, char shortOpt = 0)
