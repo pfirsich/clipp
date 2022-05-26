@@ -16,6 +16,16 @@ struct Args : public cli::ArgsBase {
         flag(verbose, "verbose", 'v');
         param(pos, "pos").optional();
     }
+
+    std::string description() const override
+    {
+        return "An example application";
+    }
+
+    std::string epilog() const override
+    {
+        return "TODO: Add usage examples";
+    }
 };
 
 int main(int argc, char** argv)
