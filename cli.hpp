@@ -253,11 +253,13 @@ private:
 };
 
 struct ArgsBase {
-
     template <typename T>
     auto& flag(T& v, const std::string& name, char shortOpt = 0)
     {
-        // How can I do this nicely without new?
+        assert(!name.empty());
+        assert(nameUnique(name));
+        assert(shortOptUnique(shortOpt));
+        // new is bad, but the alternative looks worse and a bit confusing
         auto arg = new Flag<std::decay_t<T>>(v, name, shortOpt);
         flags_.emplace_back(arg);
         return *arg;
@@ -297,6 +299,8 @@ struct ArgsBase {
     template <typename T>
     auto& param(T& v, const std::string& name)
     {
+        assert(!name.empty());
+        assert(nameUnique(name));
         auto arg = new Param<std::decay_t<T>>(v, name);
         positionals_.emplace_back(arg);
         return *arg;
@@ -356,6 +360,34 @@ struct ArgsBase {
     }
 
 private:
+    bool nameUnique(const std::string& name, const std::vector<std::unique_ptr<ArgBase>>& args)
+    {
+        for (const auto& arg : args) {
+            if (arg->name() == name) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool nameUnique(const std::string& name)
+    {
+        return nameUnique(name, flags_) && nameUnique(name, positionals_);
+    }
+
+    bool shortOptUnique(char shortOpt)
+    {
+        if (shortOpt == 0) {
+            return true;
+        }
+        for (const auto& flag : flags_) {
+            if (flag->shortOpt() == shortOpt) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     std::vector<std::unique_ptr<ArgBase>> flags_;
     std::vector<std::unique_ptr<ArgBase>> positionals_;
 };

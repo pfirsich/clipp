@@ -1,11 +1,12 @@
-* Split implementations and internal stuff to the bottom of the file
 * Proper usage string
-* Assert name unique and non-empty
 * optional Param
 * vector Param
 * numbers
 * Flag containing '=': --flag=0, maybe -f=0?
 * Concatenated flag and value: -f0 (what should be the rules here?)
-* Custom data types
+* Custom data types: You could add custom Flag/Param specializations, but you would have to add one for T, optional<T>, vector<T> times two (Flag and Param). It would be cool if you could just specify the parsing function once.
+* Custom validation functions?
 * More Examples
-* remaining()
+* How to test --help, --version and error messages?
+* remaining() - just enable this in parser and collect them instead of error-ing
+* Split implementations and internal stuff to the bottom of the file?
