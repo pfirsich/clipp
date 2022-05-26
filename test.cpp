@@ -4,25 +4,6 @@
 // #define CLI_DEBUG
 #include "cli.hpp"
 
-struct Args : public cli::ArgsBase {
-    bool foo = false;
-    std::optional<std::string> opt;
-    size_t verbose = 0;
-    std::string pos;
-    std::optional<int64_t> number;
-    std::optional<double> fnum;
-
-    void args()
-    {
-        flag(foo, "foo", 'f').help("a boolean flag");
-        flag(opt, "opt", 'o').help("an optional string");
-        flag(verbose, "verbose", 'v').help("a counted flag");
-        flag(number, "number", 'n').help("a number flag");
-        flag(fnum, "fnum").help("a real number flag");
-        param(pos, "pos").help("a positional argument");
-    }
-};
-
 struct StringOutput : cli::OutputBase {
     void out(std::string_view str)
     {
@@ -63,6 +44,25 @@ auto parse(std::vector<std::string> args)
 
     return parser.parse<ArgsType>(args);
 }
+
+struct Args : public cli::ArgsBase {
+    bool foo = false;
+    std::optional<std::string> opt;
+    size_t verbose = 0;
+    std::string pos;
+    std::optional<int64_t> number;
+    std::optional<double> fnum;
+
+    void args()
+    {
+        flag(foo, "foo", 'f').help("a boolean flag");
+        flag(opt, "opt", 'o').help("an optional string");
+        flag(verbose, "verbose", 'v').help("a counted flag");
+        flag(number, "number", 'n').help("a number flag");
+        flag(fnum, "fnum").help("a real number flag");
+        param(pos, "pos").help("a positional argument");
+    }
+};
 
 TEST_CASE(R"(no args (Args))")
 {
@@ -306,4 +306,89 @@ TEST_CASE(R"({ "42", "42" } (StdOptParam))")
     CHECK(args->x == 42);
     CHECK(args->y);
     CHECK(args->y.value() == 42);
+}
+
+struct VecFlag : public cli::ArgsBase {
+    std::vector<int64_t> vec;
+
+    void args()
+    {
+        flag(vec, "vec").num(3);
+    }
+};
+
+TEST_CASE(R"({ "--vec" } (VecFlag))")
+{
+    const auto args = parse<VecFlag>({ "--vec" });
+    CHECK(!args);
+}
+
+TEST_CASE(R"({ "--vec", "1" } (VecFlag))")
+{
+    const auto args = parse<VecFlag>({ "--vec", "1" });
+    CHECK(!args);
+}
+
+TEST_CASE(R"({ "--vec", "1", "2" } (VecFlag))")
+{
+    const auto args = parse<VecFlag>({ "--vec", "1", "2" });
+    CHECK(!args);
+}
+
+TEST_CASE(R"({ "--vec", "1", "2", "3" } (VecFlag))")
+{
+    const auto args = parse<VecFlag>({ "--vec", "1", "2", "3" });
+    REQUIRE(args);
+    CHECK(args->vec.size() == 3);
+    CHECK(args->vec[0] == 1);
+    CHECK(args->vec[1] == 2);
+    CHECK(args->vec[2] == 3);
+}
+
+TEST_CASE(R"({ "--vec", "1", "2", "3", "4" } (VecFlag))")
+{
+    const auto args = parse<VecFlag>({ "--vec", "1", "2", "3", "4" });
+    CHECK(!args);
+}
+
+struct VecFlagRange : public cli::ArgsBase {
+    std::vector<int64_t> vec;
+    std::optional<int64_t> num;
+
+    void args()
+    {
+        flag(vec, "vec").min(1).max(2);
+        flag(num, "num");
+    }
+};
+
+TEST_CASE(R"({ "--vec", "--num", "42" } (VecFlagRange))")
+{
+    const auto args = parse<VecFlagRange>({ "--vec", "--num", "42" });
+    CHECK(!args);
+}
+
+TEST_CASE(R"({ "--vec", "1", "--num", "42" } (VecFlagRange))")
+{
+    const auto args = parse<VecFlagRange>({ "--vec", "1", "--num", "42" });
+    REQUIRE(args);
+    CHECK(args->vec.size() == 1);
+    CHECK(args->vec[0] == 1);
+    CHECK(args->num == 42);
+}
+
+TEST_CASE(R"({ "--vec", "1", "2", "--num", "42" } (VecFlagRange))")
+{
+    const auto args = parse<VecFlagRange>({ "--vec", "1", "2", "--num", "42" });
+    REQUIRE(args);
+    CHECK(args->vec.size() == 2);
+    CHECK(args->vec[0] == 1);
+    CHECK(args->vec[1] == 2);
+    CHECK(args->num == 42);
+}
+
+TEST_CASE(R"({ "--vec", "1", "2", "3", "--num", "42" } (VecFlagRange))")
+{
+    const auto args = parse<VecFlagRange>({ "--vec", "1", "2", "3", "--num", "42" });
+    CHECK(!args);
 }

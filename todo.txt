@@ -1,11 +1,13 @@
-* vector Flag
 * vector Param
+* Rework everything, because it doesn't make sense
+* Support for passing a flag multiple times (and collecting into a vector). How to arrange with --foo 1 2 3 vs. --foo 1 --foo 2?
 * Flag containing '=': --flag=0, maybe -f=0?
+* README / Docs
+* Examples
 * Negative numbers
 * Concatenated flag and value: -f0 (what should be the rules here?)
 * Custom validation functions? (e.g. validate even integers)
-* More Examples
 * Test help and usage
 * Probably a million things in help/usage strings
-* remaining() - just enable this in parser and collect them instead of error-ing
+* Make check for superfluous arguments optional and collect to remaining() instead
 * Split implementations and internal stuff to the bottom of the file?

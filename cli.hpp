@@ -258,6 +258,31 @@ private:
 };
 
 template <typename T>
+struct Flag<std::vector<T>> : public ArgBuilderMixin<Flag<std::vector<T>>> {
+    Flag(std::vector<T>& values, std::string name, char shortOpt = 0)
+        // For some reason the template args need to be specified explicitly
+        : ArgBuilderMixin<Flag<std::vector<T>>>(std::move(name), shortOpt)
+        , values_(values)
+    {
+        this->min(1);
+        this->max(infinity);
+    }
+
+    bool parse(std::string_view str) override
+    {
+        const auto res = Value<T>::parse(str);
+        if (!res) {
+            return false;
+        }
+        values_.push_back(res.value());
+        return true;
+    }
+
+private:
+    std::vector<T>& values_;
+};
+
+template <typename T>
 struct Param : public ArgBuilderMixin<Param<T>> {
     Param(T& value, std::string name)
         : ArgBuilderMixin<Param<T>>(std::move(name))
