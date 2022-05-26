@@ -458,13 +458,20 @@ struct Parser {
                     argIdx += availableArgs;
                 }
             } else {
+                bool consumed = false;
                 for (auto& positional : at.positionals()) {
                     if (positional->size() < positional->max()) {
                         const auto name = "argument '" + positional->name() + "'";
                         if (!parseArg(*positional, name, args[argIdx])) {
                             return std::nullopt;
                         }
+                        consumed = true;
+                        break;
                     }
+                }
+                if (!consumed) {
+                    error("Superfluous argument '" + args[argIdx] + "'");
+                    return std::nullopt;
                 }
             }
         }

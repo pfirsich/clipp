@@ -123,3 +123,9 @@ TEST_CASE(R"({ "bar" } (OptParam))")
     CHECK(args);
     CHECK(args->pos == "bar");
 }
+
+TEST_CASE(R"({ "foo", "foo" } (OptParam))")
+{
+    const auto args = parse<OptParam>({ "foo", "foo" });
+    CHECK(!args);
+}
