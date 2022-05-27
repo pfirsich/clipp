@@ -500,6 +500,21 @@ namespace detail {
         return ret;
     }
 
+    template <typename Container>
+    std::string join(Container&& container, std::string_view delim)
+    {
+        std::stringstream ss;
+        bool first = true;
+        for (const auto& elem : container) {
+            if (!first) {
+                ss << delim;
+            }
+            first = false;
+            ss << elem;
+        }
+        return ss.str();
+    }
+
     bool isNumber(std::string_view str)
     {
         double v;
@@ -578,12 +593,7 @@ public:
             std::string name = arg->name();
             if (!arg->choices().empty()) {
                 name = "{";
-                for (size_t i = 0; i < arg->choices().size(); ++i) {
-                    if (i > 0) {
-                        name.append(",");
-                    }
-                    name.append(arg->choices()[i]);
-                }
+                name.append(detail::join(arg->choices(), ","));
                 name.append("}");
             }
             if (arg->optional()) {
@@ -634,12 +644,7 @@ public:
                 help.append("  ");
                 if (!arg->choices().empty()) {
                     help.append("{");
-                    for (size_t i = 0; i < arg->choices().size(); ++i) {
-                        if (i > 0) {
-                            help.append(",");
-                        }
-                        help.append(arg->choices()[i]);
-                    }
+                    help.append(detail::join(arg->choices(), ","));
                     help.append("}\n");
                 } else {
                     help.append(arg->name());
@@ -1072,13 +1077,7 @@ private:
                 }
             }
             if (!found) {
-                std::string valStr;
-                for (size_t i = 0; i < arg.choices().size(); ++i) {
-                    if (i > 0) {
-                        valStr.append(", ");
-                    }
-                    valStr.append(arg.choices()[i]);
-                }
+                std::string valStr = detail::join(arg.choices(), ", ");
                 error(
                     args, "Invalid value '", value, "' for ", name, ". Possible values: ", valStr);
                 return false;
