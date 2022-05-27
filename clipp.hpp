@@ -791,6 +791,21 @@ public:
 
         args.args();
 
+        size_t positionalsLeft = 0;
+        for (const auto& arg : argv) {
+            const auto isFlag = arg != "--" && arg.size() > 1 && arg[0] == '-';
+            if (!isFlag) {
+                positionalsLeft++;
+            }
+        }
+
+        size_t positionalsRequired = 0;
+        for (const auto& arg : args.positionals_) {
+            if (!arg->optional()) {
+                positionalsRequired++;
+            }
+        }
+
         bool afterPosDelim = false;
         bool halted = false;
         size_t positionalIdx = 0;
@@ -916,9 +931,15 @@ public:
                     }
                     halted = true;
                     break;
-                } else if (!arg.many()) {
+                } else if (!arg.many() || positionalsLeft == positionalsRequired) {
+                    // If we don't have positionals to spare (we just have enough left to give one
+                    // to every positional that needs one) we don't give any positional multiple
+                    // anymore.
                     positionalIdx++;
+                    positionalsRequired--;
                 }
+
+                positionalsLeft--;
             } else {
                 error(args, "Superfluous argument '" + argv[argIdx] + "'");
                 return std::nullopt;

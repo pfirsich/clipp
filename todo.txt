@@ -2,8 +2,7 @@
 * Examples
 * Negative numbers
 * Concatenated flag and value: -f0 (what should be the rules here?). Wanting to support number flags mags this tricky.
-* Allow non-optional after "many", i.e. `source [source..] dest` (for e.g. `cp`).
-  This probably means I need to add backtracking and it might be tricky (e.g. `[cool..] [okay..] [bad..]`)
+* Be smarter with '--flag=value' and make sure that it's only used for a flag that actually takes a (single) value
 * Test help and usage
 * Make check for superfluous arguments optional and collect to remaining() instead
 * Split implementations and internal stuff to the bottom of the file? Move some code into a single source file?

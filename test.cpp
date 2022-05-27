@@ -545,3 +545,63 @@ TEST_CASE(
     CHECK(args->bad[0] == "purple");
     CHECK(args->bad[1] == "orange");
 }
+
+struct NonGreedyPositionalsArgs : public clipp::ArgsBase {
+    std::vector<std::string> a;
+    std::vector<std::string> b;
+    std::vector<std::string> c;
+
+    void args()
+    {
+        positional(a, "a");
+        positional(b, "b");
+        positional(c, "c");
+    }
+};
+
+TEST_CASE(R"({ "1", "2", "3" } (NonGreedyPositionalsArgs))")
+{
+    const auto args = parse<NonGreedyPositionalsArgs>({ "1", "2", "3" });
+    REQUIRE(args);
+    REQUIRE(args->a.size() == 1);
+    CHECK(args->a[0] == "1");
+    REQUIRE(args->b.size() == 1);
+    CHECK(args->b[0] == "2");
+    REQUIRE(args->c.size() == 1);
+    CHECK(args->c[0] == "3");
+}
+
+TEST_CASE(R"({ "1", "2", "3", "4", "5" } (NonGreedyPositionalsArgs))")
+{
+    const auto args = parse<NonGreedyPositionalsArgs>({ "1", "2", "3", "4", "5" });
+    REQUIRE(args);
+    REQUIRE(args->a.size() == 3);
+    CHECK(args->a[0] == "1");
+    CHECK(args->a[1] == "2");
+    CHECK(args->a[2] == "3");
+    REQUIRE(args->b.size() == 1);
+    CHECK(args->b[0] == "4");
+    REQUIRE(args->c.size() == 1);
+    CHECK(args->c[0] == "5");
+}
+
+struct CpStyleArgs : public clipp::ArgsBase {
+    std::vector<std::string> sources;
+    std::string destination;
+
+    void args()
+    {
+        positional(sources, "source");
+        positional(destination, "destination");
+    }
+};
+
+TEST_CASE(R"({ "src1", "src2", "dst" } (CpStyleArgs))")
+{
+    const auto args = parse<CpStyleArgs>({ "src1", "src2", "dst" });
+    REQUIRE(args);
+    REQUIRE(args->sources.size() == 2);
+    CHECK(args->sources[0] == "src1");
+    CHECK(args->sources[1] == "src2");
+    CHECK(args->destination == "dst");
+}
