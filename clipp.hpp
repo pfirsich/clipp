@@ -586,7 +586,11 @@ public:
                 usage.append(" ");
                 usage.append(repArgs);
             }
-            usage.append("] ");
+            usage.append("]");
+            if (arg->collect()) {
+                usage.append("...");
+            }
+            usage.append(" ");
         }
 
         for (const auto& arg : positionals_) {
