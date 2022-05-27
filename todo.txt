@@ -1,4 +1,3 @@
-* Rethink terminology: "args", "arg", "params", "flags"
 * README / Docs
 * Examples
 * Negative numbers

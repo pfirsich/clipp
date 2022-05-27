@@ -60,7 +60,7 @@ struct Args : public clipp::ArgsBase {
         flag(verbose, "verbose", 'v').help("a counted flag");
         flag(number, "number", 'n').help("a number flag");
         flag(fnum, "fnum").help("a real number flag");
-        param(pos, "pos").help("a positional argument");
+        positional(pos, "pos").help("a positional argument");
     }
 };
 
@@ -231,7 +231,7 @@ struct OptParam : public clipp::ArgsBase {
 
     void args()
     {
-        param(pos, "pos").optional();
+        positional(pos, "pos").optional();
     }
 };
 
@@ -279,7 +279,7 @@ struct CustomType : public clipp::ArgsBase {
 
     void args()
     {
-        param(val, "pos").choices({ "a", "b", "c" });
+        positional(val, "pos").choices({ "a", "b", "c" });
     }
 };
 
@@ -324,8 +324,8 @@ struct StdOptParam : public clipp::ArgsBase {
 
     void args()
     {
-        param(x, "x").optional();
-        param(y, "y");
+        positional(x, "x").optional();
+        positional(y, "y");
     }
 };
 
@@ -402,7 +402,7 @@ struct VecParamZeroToInf : public clipp::ArgsBase {
 
     void args()
     {
-        param(params, "param").optional();
+        positional(params, "param").optional();
     }
 };
 
@@ -435,7 +435,7 @@ struct VecParamOneToInf : public clipp::ArgsBase {
 
     void args()
     {
-        param(params, "param");
+        positional(params, "param");
     }
 };
 

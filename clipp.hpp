@@ -171,9 +171,9 @@ namespace detail {
         bool collect_ = false;
     };
 
-    class ParamBase : public ArgBase {
+    class PositionalBase : public ArgBase {
     public:
-        ParamBase(std::string name, std::string_view typeName)
+        PositionalBase(std::string name, std::string_view typeName)
             : ArgBase(std::move(name), typeName)
         {
         }
@@ -206,18 +206,6 @@ namespace detail {
         {
         }
 
-        Derived& num(size_t num)
-        {
-            num_ = num;
-            return derived();
-        }
-
-        Derived& collect(bool collect = true)
-        {
-            collect_ = collect;
-            return derived();
-        }
-
         // Take a list of strings, because with custom types, we might not be able to
         // give a nice error message or conversion might be lossy somehow.
         Derived& choices(std::vector<std::string> c)
@@ -246,21 +234,15 @@ namespace detail {
     };
 
     template <typename Derived>
-    struct ParamBuilderMixin : public ParamBase {
-        ParamBuilderMixin(std::string name, std::string_view typeName)
-            : ParamBase(std::move(name), typeName)
+    struct PositionalBuilderMixin : public PositionalBase {
+        PositionalBuilderMixin(std::string name, std::string_view typeName)
+            : PositionalBase(std::move(name), typeName)
         {
         }
 
         Derived& optional(bool optional = true)
         {
             optional_ = optional;
-            return derived();
-        }
-
-        Derived& many(bool many = true)
-        {
-            many_ = many;
             return derived();
         }
 
@@ -345,7 +327,7 @@ namespace detail {
                 std::move(name), Value<T>::typeName, shortOpt)
             , value_(value)
         {
-            this->num(1);
+            this->num_ = 1;
         }
 
         bool parse(std::string_view str) override
@@ -369,7 +351,19 @@ namespace detail {
             : FlagBuilderMixin<Flag<std::vector<T>>>(std::move(name), Value<T>::typeName, shortOpt)
             , values_(values)
         {
-            this->num(1);
+            this->num_ = 1;
+        }
+
+        auto& num(size_t num)
+        {
+            this->num_ = num;
+            return *this;
+        }
+
+        auto& collect(bool collect = true)
+        {
+            this->collect_ = collect;
+            return *this;
         }
 
         void reset() override
@@ -395,10 +389,10 @@ namespace detail {
     };
 
     template <typename T>
-    class Param : public ParamBuilderMixin<Param<T>> {
+    class Positional : public PositionalBuilderMixin<Positional<T>> {
     public:
-        Param(T& value, std::string name)
-            : ParamBuilderMixin<Param<T>>(std::move(name), Value<T>::typeName)
+        Positional(T& value, std::string name)
+            : PositionalBuilderMixin<Positional<T>>(std::move(name), Value<T>::typeName)
             , value_(value)
         {
         }
@@ -419,10 +413,12 @@ namespace detail {
     };
 
     template <typename T>
-    class Param<std::optional<T>> : public ParamBuilderMixin<Param<std::optional<T>>> {
+    class Positional<std::optional<T>>
+        : public PositionalBuilderMixin<Positional<std::optional<T>>> {
     public:
-        Param(std::optional<T>& value, std::string name)
-            : ParamBuilderMixin<Param<std::optional<T>>>(std::move(name), Value<T>::typeName)
+        Positional(std::optional<T>& value, std::string name)
+            : PositionalBuilderMixin<Positional<std::optional<T>>>(
+                std::move(name), Value<T>::typeName)
             , value_(value)
         {
             this->optional();
@@ -444,13 +440,14 @@ namespace detail {
     };
 
     template <typename T>
-    class Param<std::vector<T>> : public ParamBuilderMixin<Param<std::vector<T>>> {
+    class Positional<std::vector<T>> : public PositionalBuilderMixin<Positional<std::vector<T>>> {
     public:
-        Param(std::vector<T>& values, std::string name)
-            : ParamBuilderMixin<Param<std::vector<T>>>(std::move(name), Value<T>::typeName)
+        Positional(std::vector<T>& values, std::string name)
+            : PositionalBuilderMixin<Positional<std::vector<T>>>(
+                std::move(name), Value<T>::typeName)
             , values_(values)
         {
-            this->many();
+            this->many_ = true;
         }
 
         bool parse(std::string_view str) override
@@ -514,23 +511,23 @@ public:
     ArgsBase& operator=(ArgsBase&&) = default;
 
     template <typename T>
-    detail::Flag<std::decay_t<T>>& flag(T& v, const std::string& name, char shortOpt = 0)
+    detail::Flag<std::decay_t<T>>& flag(T& v, std::string name, char shortOpt = 0)
     {
         assert(!name.empty());
         assert(nameUnique(name));
         assert(shortOptUnique(shortOpt));
         // new is bad, but the alternative looks worse and a bit confusing
-        auto arg = new detail::Flag<std::decay_t<T>>(v, name, shortOpt);
+        auto arg = new detail::Flag<std::decay_t<T>>(v, std::move(name), shortOpt);
         flags_.emplace_back(arg);
         return *arg;
     }
 
     template <typename T>
-    detail::Param<std::decay_t<T>>& param(T& v, const std::string& name)
+    detail::Positional<std::decay_t<T>>& positional(T& v, std::string name)
     {
         assert(!name.empty());
         assert(nameUnique(name));
-        auto arg = new detail::Param<std::decay_t<T>>(v, name);
+        auto arg = new detail::Positional<std::decay_t<T>>(v, std::move(name));
         positionals_.emplace_back(arg);
         return *arg;
     }
@@ -735,7 +732,7 @@ private:
     }
 
     std::vector<std::unique_ptr<detail::FlagBase>> flags_;
-    std::vector<std::unique_ptr<detail::ParamBase>> positionals_;
+    std::vector<std::unique_ptr<detail::PositionalBase>> positionals_;
     std::vector<std::string> remaining_;
 };
 

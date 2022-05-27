@@ -14,7 +14,7 @@ struct Args : public clipp::ArgsBase {
         flag(foo, "foo", 'f');
         flag(opt, "opt", 'o');
         flag(verbose, "verbose", 'v');
-        param(pos, "pos").optional();
+        positional(pos, "pos").optional();
     }
 
     std::string description() const override

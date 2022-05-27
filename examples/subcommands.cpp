@@ -10,7 +10,7 @@ struct ParentArgs : public clipp::ArgsBase {
     void args()
     {
         flag(device, "device", 'd').help("Which device to start the system on");
-        param(command, "command").choices({ "start", "stop" }).halt();
+        positional(command, "command").choices({ "start", "stop" }).halt();
     }
 };
 
@@ -21,7 +21,7 @@ struct StartArgs : public clipp::ArgsBase {
     void args()
     {
         flag(power, "power", 'p').help("With how much power to start the system");
-        param(system, "system").help("The system to start");
+        positional(system, "system").help("The system to start");
     }
 };
 
@@ -32,7 +32,7 @@ struct StopArgs : public clipp::ArgsBase {
     void args()
     {
         flag(force, "force", 'f').help("Force stopping of system");
-        param(system, "system").help("The system to stop");
+        positional(system, "system").help("The system to stop");
     }
 };
 
