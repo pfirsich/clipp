@@ -1,8 +1,0 @@
-* README / Docs
-* Examples
-* Test help and usage
-* Test subcommands
-* Have a more structured approach to testing and not just a "throw shit against the wall"-testing. Try to cover all branches individually.
-* Add a way to configure the name of a flag value ("metavar")
-* Hex/Octal/Binary Numbers (though if you need them, you can add your own Value specialization)
-* Split implementations and internal stuff to the bottom of the file? Move some code into a single source file?
