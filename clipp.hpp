@@ -494,6 +494,13 @@ namespace detail {
         }
         return ret;
     }
+
+    bool isNumber(std::string_view str)
+    {
+        double v;
+        const auto res = std::from_chars(str.data(), str.data() + str.size(), v);
+        return res.ec == std::errc {} && res.ptr == str.data() + str.size();
+    }
 }
 
 class Parser;
@@ -791,10 +798,28 @@ public:
 
         args.args();
 
+        bool hasDigitShortOpt = false;
+        for (const auto& arg : args.flags_) {
+            assert('0' < '9');
+            if (arg->shortOpt() >= '0' && arg->shortOpt() <= '9') {
+                hasDigitShortOpt = true;
+                break;
+            }
+        }
+
+        auto isFlag = [&hasDigitShortOpt](std::string_view arg) {
+            if (arg == "--" || arg.size() < 2 || arg[0] != '-') {
+                return false;
+            }
+            if (!hasDigitShortOpt && detail::isNumber(arg)) {
+                return false;
+            }
+            return true;
+        };
+
         size_t positionalsLeft = 0;
         for (const auto& arg : argv) {
-            const auto isFlag = arg != "--" && arg.size() > 1 && arg[0] == '-';
-            if (!isFlag) {
+            if (!isFlag(arg)) {
                 positionalsLeft++;
             }
         }
@@ -814,13 +839,16 @@ public:
             detail::debug("arg: '", arg, "'");
 
             if (arg == "--") {
+                detail::debug("sep");
                 if (afterPosDelim) {
                     detail::debug("inc pos idx");
                     positionalIdx++;
                 }
                 afterPosDelim = true;
                 continue;
-            } else if (!afterPosDelim && arg.size() > 1 && arg[0] == '-') {
+            } else if (!afterPosDelim && isFlag(arg)) {
+                detail::debug("flag");
+
                 // Kind of hacky, but the "clean" but this is very simple and correct
                 const auto eq = arg.find('=');
                 if (eq != std::string_view::npos) {
@@ -871,13 +899,13 @@ public:
 
                 assert(flag);
                 if (flag->num() == 0) {
-                    detail::debug("flag");
+                    detail::debug("0 arg flag");
                     flag->parse("");
                 } else {
                     size_t availableArgs = 0;
                     for (size_t i = argIdx + 1; i < std::min(argv.size(), argIdx + 1 + flag->num());
                          ++i) {
-                        if (!argv[i].empty() && argv[i][0] == '-') {
+                        if (isFlag(argv[i])) {
                             break;
                         }
                         availableArgs++;

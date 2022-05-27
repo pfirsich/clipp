@@ -52,6 +52,8 @@ struct Args : public clipp::ArgsBase {
     std::string pos;
     std::optional<int64_t> number;
     std::optional<double> fnum;
+    int64_t posInt;
+    double posDouble;
 
     void args()
     {
@@ -61,6 +63,8 @@ struct Args : public clipp::ArgsBase {
         flag(number, "number", 'n').help("a number flag");
         flag(fnum, "fnum").help("a real number flag");
         positional(pos, "pos").help("a positional argument");
+        positional(posInt, "int").optional().help("a positional int argument");
+        positional(posDouble, "double").optional().help("a positional double argument");
     }
 };
 
@@ -162,6 +166,26 @@ TEST_CASE(R"({ "--number", "42", "pos" } (Args))")
     CHECK(args->pos == "pos");
 }
 
+TEST_CASE(R"({ "--number", "-42", "pos" } (Args))")
+{
+    const auto args = parse<Args>({ "--number", "-42", "pos" });
+    REQUIRE(args);
+    CHECK(!args->foo);
+    CHECK(!args->opt);
+    CHECK(args->verbose == 0);
+    CHECK(*args->number == -42);
+    CHECK(args->pos == "pos");
+}
+
+TEST_CASE(R"({ "pos", "-42", "-52.2" } (Args))")
+{
+    const auto args = parse<Args>({ "pos", "-42", "-52.2" });
+    REQUIRE(args);
+    CHECK(args->posInt == -42);
+    CHECK(std::fabs(args->posDouble - -52.2) < 1e-8);
+    CHECK(args->pos == "pos");
+}
+
 TEST_CASE(R"({ "--fnum", "foo", "pos" } (Args))")
 {
     const auto args = parse<Args>({ "--fnum", "foo", "pos" });
@@ -180,6 +204,13 @@ TEST_CASE(R"({ "--fnum", "42.542", "pos" } (Args))")
     const auto args = parse<Args>({ "--fnum", "42.542", "pos" });
     REQUIRE(args);
     CHECK(std::fabs(*args->fnum - 42.542) < 1e-8);
+}
+
+TEST_CASE(R"({ "--fnum", "-42.542", "pos" } (Args))")
+{
+    const auto args = parse<Args>({ "--fnum", "-42.542", "pos" });
+    REQUIRE(args);
+    CHECK(std::fabs(*args->fnum - -42.542) < 1e-8);
 }
 
 TEST_CASE(R"({ "--number=5", "pos" } (Args))")
