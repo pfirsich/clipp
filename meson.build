@@ -4,3 +4,4 @@ executable('clitest', 'test.cpp')
 
 executable('example', 'examples/example.cpp')
 executable('subcommands', 'examples/subcommands.cpp')
+executable('customtypes', 'examples/customtypes.cpp')
