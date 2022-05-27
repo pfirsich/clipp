@@ -504,7 +504,7 @@ struct VecFlagDontCollectArgs : public clipp::ArgsBase {
 
     void args()
     {
-        flag(vals, "vals");
+        flag(vals, "vals").collect(false);
     }
 };
 
@@ -522,7 +522,7 @@ struct VecFlagCollectArgs : public clipp::ArgsBase {
 
     void args()
     {
-        flag(vals, "vals").collect();
+        flag(vals, "vals");
     }
 };
 

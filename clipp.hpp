@@ -355,11 +355,13 @@ namespace detail {
             , values_(values)
         {
             this->num_ = 1;
+            this->collect_ = true;
         }
 
         auto& num(size_t num)
         {
             this->num_ = num;
+            this->collect_ = false;
             return *this;
         }
 

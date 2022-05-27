@@ -1,7 +1,5 @@
 * README / Docs
 * Examples
-* Remove version
-* Make .num() set collect to false and vector has num = 1 and collect = true by default
 * Test help and usage
 * Test subcommands
 * Have a more structured approach to testing and not just a "throw shit against the wall"-testing. Try to cover all branches individually.
