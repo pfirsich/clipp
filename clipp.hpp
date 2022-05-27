@@ -793,11 +793,19 @@ public:
 
         bool afterPosDelim = false;
         bool halted = false;
+        size_t positionalIdx = 0;
         for (size_t argIdx = 0; argIdx < argv.size(); ++argIdx) {
             std::string_view arg = argv[argIdx];
             detail::debug("arg: '", arg, "'");
 
-            if (!afterPosDelim && arg.size() > 1 && arg[0] == '-') {
+            if (arg == "--") {
+                if (afterPosDelim) {
+                    detail::debug("inc pos idx");
+                    positionalIdx++;
+                }
+                afterPosDelim = true;
+                continue;
+            } else if (!afterPosDelim && arg.size() > 1 && arg[0] == '-') {
                 // Kind of hacky, but the "clean" but this is very simple and correct
                 const auto eq = arg.find('=');
                 if (eq != std::string_view::npos) {
@@ -809,11 +817,6 @@ public:
                 detail::FlagBase* flag = nullptr;
                 std::string optName;
                 if (arg[1] == '-') {
-                    if (arg == "--") {
-                        afterPosDelim = true;
-                        continue;
-                    }
-
                     // parse long option
                     flag = args.flag(arg.substr(2));
                     if (!flag) {
@@ -896,36 +899,29 @@ public:
                     halted = true;
                     break;
                 }
-            } else {
-                bool consumed = false;
-                for (auto& arg : args.positionals_) {
-                    if (arg->size() == 0 || arg->many()) {
-                        detail::debug("parse ", arg->name());
-                        const auto name = "argument '" + arg->name() + "'";
-                        if (!parseArg(args, *arg, name, argv[argIdx])) {
-                            return std::nullopt;
-                        }
+            } else if (positionalIdx < args.positionals_.size()) {
+                auto& arg = *args.positionals_[positionalIdx];
 
-                        if (arg->halt()) {
-                            detail::debug("halt");
-                            for (size_t i = argIdx + 1; i < argv.size(); ++i) {
-                                detail::debug("remaining: ", argv[i]);
-                                args.remaining_.push_back(argv[i]);
-                            }
-                            halted = true;
-                        }
-
-                        consumed = true;
-                        break;
-                    }
-                }
-                if (halted) {
-                    break;
-                }
-                if (!consumed) {
-                    error(args, "Superfluous argument '" + argv[argIdx] + "'");
+                detail::debug("positional ", arg.name());
+                const auto name = "argument '" + arg.name() + "'";
+                if (!parseArg(args, arg, name, argv[argIdx])) {
                     return std::nullopt;
                 }
+
+                if (arg.halt()) {
+                    detail::debug("halt");
+                    for (size_t i = argIdx + 1; i < argv.size(); ++i) {
+                        detail::debug("remaining: ", argv[i]);
+                        args.remaining_.push_back(argv[i]);
+                    }
+                    halted = true;
+                    break;
+                } else if (!arg.many()) {
+                    positionalIdx++;
+                }
+            } else {
+                error(args, "Superfluous argument '" + argv[argIdx] + "'");
+                return std::nullopt;
             }
         }
 

@@ -498,3 +498,50 @@ TEST_CASE(R"({ "--vals", "1", "--vals", "2", "--vals", "3" } (VecFlagCollectArgs
     CHECK(args->vals[1] == 2);
     CHECK(args->vals[2] == 3);
 }
+
+struct PosDelimArgs : public clipp::ArgsBase {
+    std::vector<std::string> cool;
+    std::vector<std::string> okay;
+    std::vector<std::string> bad;
+
+    void args()
+    {
+        positional(cool, "cool").optional();
+        positional(okay, "okay").optional();
+        positional(bad, "bad").optional();
+    }
+};
+
+TEST_CASE(R"({ "blue", "green", "yellow", "red", "purple", "orange" } (PosDelimArgs))")
+{
+    const auto argv
+        = std::vector<std::string> { { "blue", "green", "yellow", "red", "purple", "orange" } };
+    const auto args = parse<PosDelimArgs>(argv);
+    REQUIRE(args);
+    REQUIRE(args->cool.size() == 6);
+    CHECK(args->cool[0] == "blue");
+    CHECK(args->cool[1] == "green");
+    CHECK(args->cool[2] == "yellow");
+    CHECK(args->cool[3] == "red");
+    CHECK(args->cool[4] == "purple");
+    CHECK(args->cool[5] == "orange");
+    CHECK(args->okay.size() == 0);
+    CHECK(args->bad.size() == 0);
+}
+
+TEST_CASE(
+    R"({ "--", "blue", "green", "--", "yellow", "red", "--", "purple", "orange" } (PosDelimArgs))")
+{
+    const auto args = parse<PosDelimArgs>(
+        { "--", "blue", "green", "--", "yellow", "red", "--", "purple", "orange" });
+    REQUIRE(args);
+    REQUIRE(args->cool.size() == 2);
+    CHECK(args->cool[0] == "blue");
+    CHECK(args->cool[1] == "green");
+    REQUIRE(args->okay.size() == 2);
+    CHECK(args->okay[0] == "yellow");
+    CHECK(args->okay[1] == "red");
+    REQUIRE(args->bad.size() == 2);
+    CHECK(args->bad[0] == "purple");
+    CHECK(args->bad[1] == "orange");
+}
