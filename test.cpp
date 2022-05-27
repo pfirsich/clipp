@@ -134,6 +134,7 @@ TEST_CASE(R"({ "-fvvv", "--opt", "optval", "--foo" } (Args))")
 TEST_CASE(R"({ "-fvvvo", "optval", "pos" } (Args))")
 {
     const auto args = parse<Args>({ "-fvvvo", "optval", "pos" });
+    CAPTURE(output->error);
     REQUIRE(args);
     CHECK(args->foo);
     CHECK(args->opt);
@@ -228,14 +229,10 @@ TEST_CASE(R"({ "--number=", "pos" } (Args))")
     CHECK(!args);
 }
 
-TEST_CASE(R"({ "-fn=6", "pos" } (Args))")
+TEST_CASE(R"({ "-n=6", "pos" } (Args))")
 {
-    const auto args = parse<Args>({ "-fn=6", "pos" });
-    CAPTURE(output->error);
-    REQUIRE(args);
-    CHECK(args->foo);
-    CHECK(args->number);
-    CHECK(args->number.value() == 6);
+    const auto args = parse<Args>({ "-n=6", "pos" });
+    CHECK(!args);
 }
 
 TEST_CASE(R"({ "--opt=", "pos" } (Args))")
@@ -247,14 +244,23 @@ TEST_CASE(R"({ "--opt=", "pos" } (Args))")
     CHECK(args->opt.value() == "");
 }
 
-TEST_CASE(R"({ "-fo=", "pos" } (Args))")
+TEST_CASE(R"({ "-fo", "baz", "pos" } (Args))")
 {
-    const auto args = parse<Args>({ "-fo=", "pos" });
+    const auto args = parse<Args>({ "-fo", "baz", "pos" });
     CAPTURE(output->error);
     REQUIRE(args);
     CHECK(args->foo);
     CHECK(args->opt);
-    CHECK(args->opt.value() == "");
+    CHECK(args->opt.value() == "baz");
+}
+
+TEST_CASE(R"({ "-obaz", "pos" } (Args))")
+{
+    const auto args = parse<Args>({ "-obaz", "pos" });
+    CAPTURE(output->error);
+    REQUIRE(args);
+    CHECK(args->opt);
+    CHECK(args->opt.value() == "baz");
 }
 
 struct OptParam : public clipp::ArgsBase {

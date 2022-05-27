@@ -7,13 +7,10 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
-
-#ifdef CLIPP_DEBUG
-#include <sstream>
-#endif
 
 namespace clipp {
 template <typename T>
@@ -79,12 +76,18 @@ struct StdOutErr : public OutputBase {
 
 namespace detail {
     template <typename... Args>
+    std::string concat(Args&&... args)
+    {
+        std::stringstream ss;
+        (ss << ... << args);
+        return ss.str();
+    }
+
+    template <typename... Args>
     void debug([[maybe_unused]] Args&&... args)
     {
 #ifdef CLIPP_DEBUG
-        std::stringstream ss;
-        (ss << ... << args);
-        std::puts(ss.str().c_str());
+        std::puts(concat(std::forward<Args>(args)...).c_str());
 #endif
     }
 
@@ -779,7 +782,7 @@ public:
     }
 
     template <typename Args>
-    std::optional<Args> parse(std::vector<std::string> argv)
+    std::optional<Args> parse(const std::vector<std::string>& argv)
     {
         static_assert(std::is_base_of_v<ArgsBase, Args>);
         detail::debug(">>> parse");
@@ -831,6 +834,16 @@ public:
             }
         }
 
+        auto halt = [](Args& args, const std::vector<std::string>& argv, size_t argIdx) -> bool {
+            detail::debug("halt");
+            args.remaining_.clear();
+            for (size_t i = argIdx + 1; i < argv.size(); ++i) {
+                detail::debug("remaining: ", argv[i]);
+                args.remaining_.push_back(argv[i]);
+            }
+            return true;
+        };
+
         bool afterPosDelim = false;
         bool halted = false;
         size_t positionalIdx = 0;
@@ -848,53 +861,90 @@ public:
                 continue;
             } else if (!afterPosDelim && isFlag(arg)) {
                 detail::debug("flag");
-
-                // Kind of hacky, but the "clean" but this is very simple and correct
-                const auto eq = arg.find('=');
-                if (eq != std::string_view::npos) {
-                    argv.insert(argv.begin() + argIdx + 1, std::string(arg.substr(eq + 1)));
-                    argv[argIdx] = std::string(arg.substr(0, eq));
-                    arg = argv[argIdx];
-                }
-
                 detail::FlagBase* flag = nullptr;
-                std::string optName;
+                std::vector<std::string_view> values;
+                std::string_view optName;
+
                 if (arg[1] == '-') {
-                    // parse long option
-                    flag = args.flag(arg.substr(2));
-                    if (!flag) {
-                        error(args, "Invalid option '" + std::string(arg) + "'");
-                        return std::nullopt;
+                    // long option: --flag
+                    const auto eq = arg.find('=');
+                    if (eq != std::string_view::npos) {
+                        // --flag=value
+                        detail::debug("eq");
+                        const auto name = arg.substr(0, eq);
+
+                        flag = args.flag(name.substr(2));
+                        if (!flag) {
+                            error(args, "Invalid option '", name, "'");
+                            return std::nullopt;
+                        }
+
+                        if (flag->num() != 1) {
+                            error(args, "'='-syntax can not be used for '", name,
+                                "' because it takes ", std::to_string(flag->num()), " arguments");
+                            return std::nullopt;
+                        }
+
+                        values.push_back(arg.substr(eq + 1));
+                        optName = name;
+                    } else {
+                        flag = args.flag(arg.substr(2));
+                        if (!flag) {
+                            error(args, "Invalid option '", arg, "'");
+                            return std::nullopt;
+                        }
+                        optName = arg;
                     }
-                    optName = arg;
                 } else {
                     // parse short option(s)
-                    // parse all except the last as flags
-                    for (const auto c : arg.substr(1, arg.size() - 2)) {
-                        detail::debug("short: ", std::string(1, c));
-                        auto flag = args.flag(c);
-                        if (!flag) {
-                            error(args, "Invalid option '" + std::string(1, c) + "'");
-                            return std::nullopt;
-                        }
-                        if (flag->num() != 0) {
-                            const auto argStr = flag->num() == 1
-                                ? std::string("an argument")
-                                : std::to_string(flag->num()) + " arguments";
-                            error(args, "Option '" + std::string(1, c) + "' requires " + argStr);
-                            return std::nullopt;
-                        }
-                        flag->parse("");
-                    }
-
-                    const auto lastOpt = arg[arg.size() - 1];
-                    detail::debug("lastOpt: ", std::string(1, lastOpt));
-                    flag = args.flag(lastOpt);
+                    flag = args.flag(arg[1]);
                     if (!flag) {
-                        error(args, "Invalid option '" + std::string(1, lastOpt) + "'");
+                        error(args, "Invalid option '", std::string(1, arg[1]), "'");
                         return std::nullopt;
                     }
-                    optName = std::string(1, lastOpt);
+
+                    if (flag->num() == 1 && arg.size() > 2) {
+                        detail::debug("short + value");
+                        // -fVALUE
+                        values.push_back(arg.substr(2));
+                        optName = std::string(1, arg[1]);
+                    } else {
+                        // parse all except the last as bool flags
+                        for (const auto c : arg.substr(1, arg.size() - 2)) {
+                            detail::debug("short: ", std::string(1, c));
+                            auto flag = args.flag(c);
+                            if (!flag) {
+                                error(args, "Invalid option '", std::string(1, c), "'");
+                                return std::nullopt;
+                            }
+
+                            if (flag->num() != 0) {
+                                const auto argStr = flag->num() == 1
+                                    ? std::string("an argument")
+                                    : std::to_string(flag->num()) + " arguments";
+                                error(args, "Option '", std::string(1, c), "' requires ", argStr);
+                                return std::nullopt;
+                            }
+
+                            flag->parse("");
+
+                            // If we need to halt, we do not break, so we can finish this arg
+                            // completely. If we don't finish it "remaining" is not quite right and
+                            // parts of this argument would be remaining still.
+                            if (flag->halt()) {
+                                halted = halt(args, argv, argIdx);
+                            }
+                        }
+
+                        const auto lastOpt = arg[arg.size() - 1];
+                        detail::debug("lastOpt: ", std::string(1, lastOpt));
+                        flag = args.flag(lastOpt);
+                        if (!flag) {
+                            error(args, "Invalid option '", std::string(1, lastOpt), "'");
+                            return std::nullopt;
+                        }
+                        optName = std::string(1, lastOpt);
+                    }
                 }
 
                 assert(flag);
@@ -902,21 +952,22 @@ public:
                     detail::debug("0 arg flag");
                     flag->parse("");
                 } else {
-                    size_t availableArgs = 0;
-                    for (size_t i = argIdx + 1; i < std::min(argv.size(), argIdx + 1 + flag->num());
-                         ++i) {
-                        if (isFlag(argv[i])) {
-                            break;
+                    if (values.empty()) {
+                        for (size_t i = argIdx + 1;
+                             i < std::min(argv.size(), argIdx + 1 + flag->num()); ++i) {
+                            if (isFlag(argv[i])) {
+                                break;
+                            }
+                            values.push_back(argv[i]);
+                            detail::debug("flag value: ", values.back());
                         }
-                        availableArgs++;
+                        assert(values.size() <= flag->num());
+                        argIdx += values.size();
                     }
-                    detail::debug("available: ", availableArgs);
-                    assert(availableArgs <= flag->num());
 
-                    if (availableArgs < flag->num()) {
-                        error(args,
-                            "Option '" + optName + "' requires " + std::to_string(flag->num())
-                                + (flag->num() > 1 ? " arguments" : " argument"));
+                    if (values.size() < flag->num()) {
+                        error(args, "Option '", optName, "' requires ", std::to_string(flag->num()),
+                            (flag->num() > 1 ? " arguments" : " argument"));
                         return std::nullopt;
                     }
 
@@ -924,23 +975,16 @@ public:
                         flag->reset();
                     }
 
-                    for (size_t i = 0; i < availableArgs; ++i) {
-                        const auto name = "option '" + optName + "'";
-                        if (!parseArg(args, *flag, name, argv[argIdx + 1 + i])) {
+                    for (const auto val : values) {
+                        const auto name = detail::concat("option '", optName, "'");
+                        if (!parseArg(args, *flag, name, val)) {
                             return std::nullopt;
                         }
                     }
-                    argIdx += availableArgs;
                 }
 
                 if (flag->halt()) {
-                    detail::debug("halt");
-                    for (size_t i = argIdx + 1; i < argv.size(); ++i) {
-                        detail::debug("remaining: ", argv[i]);
-                        args.remaining_.push_back(argv[i]);
-                    }
-                    halted = true;
-                    break;
+                    halted = halt(args, argv, argIdx);
                 }
             } else if (positionalIdx < args.positionals_.size()) {
                 auto& arg = *args.positionals_[positionalIdx];
@@ -952,13 +996,7 @@ public:
                 }
 
                 if (arg.halt()) {
-                    detail::debug("halt");
-                    for (size_t i = argIdx + 1; i < argv.size(); ++i) {
-                        detail::debug("remaining: ", argv[i]);
-                        args.remaining_.push_back(argv[i]);
-                    }
-                    halted = true;
-                    break;
+                    halted = halt(args, argv, argIdx);
                 } else if (!arg.many() || positionalsLeft == positionalsRequired) {
                     // If we don't have positionals to spare (we just have enough left to give one
                     // to every positional that needs one) we don't give any positional multiple
@@ -969,8 +1007,12 @@ public:
 
                 positionalsLeft--;
             } else {
-                error(args, "Superfluous argument '" + argv[argIdx] + "'");
+                error(args, "Superfluous argument '", argv[argIdx], "'");
                 return std::nullopt;
+            }
+
+            if (halted) {
+                break;
             }
         }
 
@@ -993,7 +1035,7 @@ public:
 
         for (auto& arg : args.positionals_) {
             if (!arg->optional() && arg->size() == 0) {
-                error(args, "Missing argument '" + arg->name() + "'");
+                error(args, "Missing argument '", arg->name(), "'");
                 return std::nullopt;
             }
         }
@@ -1008,13 +1050,13 @@ public:
     }
 
 private:
-    bool parseArg(const ArgsBase& args, detail::ArgBase& arg, const std::string& name,
-        const std::string& argStr)
+    bool parseArg(
+        const ArgsBase& args, detail::ArgBase& arg, std::string_view name, std::string_view value)
     {
         if (arg.choices().size() > 0) {
             bool found = false;
             for (const auto& choice : arg.choices()) {
-                if (choice == argStr) {
+                if (choice == value) {
                     found = true;
                     break;
                 }
@@ -1027,15 +1069,14 @@ private:
                     }
                     valStr.append(arg.choices()[i]);
                 }
-                error(args,
-                    "Invalid value '" + argStr + "' for " + name + " (choice): '" + argStr
-                        + "'. Possible values: " + valStr);
+                error(
+                    args, "Invalid value '", value, "' for ", name, ". Possible values: ", valStr);
                 return false;
             }
         }
 
-        if (!arg.parse(argStr)) {
-            std::string message = "Invalid value '" + argStr + "' for " + name;
+        if (!arg.parse(value)) {
+            std::string message = detail::concat("Invalid value '", value, "' for ", name);
             if (!arg.typeName().empty()) {
                 message.append(" (" + std::string(arg.typeName()) + ")");
             }
@@ -1045,9 +1086,10 @@ private:
         return true;
     }
 
-    void error(const ArgsBase& args, const std::string& message)
+    template <typename... Args>
+    void error(const ArgsBase& args, Args&&... msg)
     {
-        output_->err(message);
+        output_->err(detail::concat(std::forward<Args>(msg)...));
         output_->err("\n");
         const auto usage = args.usage(programName_);
         if (!usage.empty()) {
