@@ -772,6 +772,12 @@ public:
         exitOnError_ = exitOnError;
     }
 
+    // This is essential haltOnFirstSuperfluousPositional
+    void errorOnExtraArgs(bool errorOnExtraArgs)
+    {
+        errorOnExtraArgs_ = errorOnExtraArgs;
+    }
+
     // These two are mostly for testing, but maybe they are useful for other stuff
     void output(std::shared_ptr<OutputBase> output)
     {
@@ -839,7 +845,7 @@ public:
         auto halt = [](Args& args, const std::vector<std::string>& argv, size_t argIdx) -> bool {
             detail::debug("halt");
             args.remaining_.clear();
-            for (size_t i = argIdx + 1; i < argv.size(); ++i) {
+            for (size_t i = argIdx; i < argv.size(); ++i) {
                 detail::debug("remaining: ", argv[i]);
                 args.remaining_.push_back(argv[i]);
             }
@@ -934,7 +940,7 @@ public:
                             // completely. If we don't finish it "remaining" is not quite right and
                             // parts of this argument would be remaining still.
                             if (flag->halt()) {
-                                halted = halt(args, argv, argIdx);
+                                halted = halt(args, argv, argIdx + 1);
                             }
                         }
 
@@ -986,7 +992,7 @@ public:
                 }
 
                 if (flag->halt()) {
-                    halted = halt(args, argv, argIdx);
+                    halted = halt(args, argv, argIdx + 1);
                 }
             } else if (positionalIdx < args.positionals_.size()) {
                 auto& arg = *args.positionals_[positionalIdx];
@@ -998,7 +1004,7 @@ public:
                 }
 
                 if (arg.halt()) {
-                    halted = halt(args, argv, argIdx);
+                    halted = halt(args, argv, argIdx + 1);
                 } else if (!arg.many() || positionalsLeft == positionalsRequired) {
                     // If we don't have positionals to spare (we just have enough left to give one
                     // to every positional that needs one) we don't give any positional multiple
@@ -1008,9 +1014,11 @@ public:
                 }
 
                 positionalsLeft--;
-            } else {
+            } else if (errorOnExtraArgs_) {
                 error(args, "Superfluous argument '", argv[argIdx], "'");
                 return std::nullopt;
+            } else {
+                halted = halt(args, argv, argIdx);
             }
 
             if (halted) {
@@ -1110,5 +1118,6 @@ private:
     std::function<void(int)> exit_;
     bool addHelp_ = true;
     bool exitOnError_ = true;
+    bool errorOnExtraArgs_ = true;
 };
 }

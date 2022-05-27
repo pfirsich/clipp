@@ -28,8 +28,12 @@ struct StringOutput : clipp::OutputBase {
 std::shared_ptr<StringOutput> output;
 int exitStatus;
 
-template <typename ArgsType>
-auto parse(std::vector<std::string> args)
+bool contains(std::string_view str, std::string_view needle)
+{
+    return str.find(needle) != std::string_view::npos;
+}
+
+clipp::Parser getParser()
 {
     if (!output) {
         output = std::make_shared<StringOutput>();
@@ -38,10 +42,17 @@ auto parse(std::vector<std::string> args)
     exitStatus = 0;
 
     auto parser = clipp::Parser("test");
-    parser.version("0.1");
+    // parser.version("0.1");
     parser.output(output);
     parser.exit([](int status) { exitStatus = status; });
 
+    return parser;
+}
+
+template <typename ArgsType>
+auto parse(std::vector<std::string> args)
+{
+    auto parser = getParser();
     return parser.parse<ArgsType>(args);
 }
 
@@ -641,4 +652,38 @@ TEST_CASE(R"({ "src1", "src2", "dst" } (CpStyleArgs))")
     CHECK(args->sources[0] == "src1");
     CHECK(args->sources[1] == "src2");
     CHECK(args->destination == "dst");
+}
+
+struct SshArgs : public clipp::ArgsBase {
+    std::optional<int64_t> port;
+    std::string host;
+
+    void args()
+    {
+        flag(port, "port", 'p');
+        positional(host, "host");
+    }
+};
+
+TEST_CASE(R"({ "-p", "21", "myserver", "rm", "-rf", "/" } (SshArgs))")
+{
+    auto parser = getParser();
+    parser.errorOnExtraArgs(false);
+    const auto args = parser.parse<SshArgs>({ "-p", "21", "myserver", "rm", "-rf", "/" });
+    CAPTURE(output->error);
+    REQUIRE(args);
+    REQUIRE(args->port);
+    CHECK(args->port.value() == 21);
+    CHECK(args->host == "myserver");
+    REQUIRE(args->remaining().size() == 3);
+    CHECK(args->remaining()[0] == "rm");
+    CHECK(args->remaining()[1] == "-rf");
+    CHECK(args->remaining()[2] == "/");
+}
+
+TEST_CASE(R"({ "-p", "21", "myserver", "rm", "-rf", "/" } (SshArgs))")
+{
+    const auto args = parse<SshArgs>({ "-p", "21", "myserver", "rm", "-rf", "/" });
+    CHECK(!args);
+    CHECK(contains(output->error, "Superfluous"));
 }
