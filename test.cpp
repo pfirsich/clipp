@@ -361,7 +361,7 @@ TEST_CASE(R"({ "--version" } (Args))")
 
 TEST_CASE(R"({ "--help" } (Args))")
 {
-    const auto args = parse<Args>({ "--version" });
+    const auto args = parse<Args>({ "--help" });
     CHECK(args);
     CHECK(exitStatus == 0);
 }
