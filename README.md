@@ -112,3 +112,10 @@ Long story short, just download [clipp.hpp](./clipp.hpp) (or add this repo as a 
 * Be more systematic about testing. Ideally test every branch intentionally and not just try out random stuff.
 * Add a way to configure the name of a flag value in the help/usage string ("metavar" in Python's argparse)
 * Hex/Octal/Binary Numbers (though if you need them, you can add your own Value specialization)
+
+## Nice Links
+These links were very helpful during development and I want to keep them, but I might as well put them in a publicly visible place.
+* http://docopt.org/
+* https://www.gnu.org/prep/standards/html_node/Command_002dLine-Interfaces.html
+* https://clig.dev/
+* https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap12.html
