@@ -470,7 +470,7 @@ namespace detail {
         std::vector<T>& values_;
     };
 
-    char toUpperCase(char ch)
+    inline char toUpperCase(char ch)
     {
         if (ch >= 'a' && ch <= 'z') {
             assert('a' > 'A');
@@ -479,7 +479,7 @@ namespace detail {
         return ch;
     }
 
-    std::string toUpperCase(std::string_view str)
+    inline std::string toUpperCase(std::string_view str)
     {
         std::string upper;
         for (const auto ch : str) {
@@ -488,7 +488,7 @@ namespace detail {
         return upper;
     }
 
-    std::string repeated(const std::string& str, size_t num)
+    inline std::string repeated(const std::string& str, size_t num)
     {
         std::string ret;
         for (size_t i = 0; i < num; ++i) {
@@ -515,7 +515,7 @@ namespace detail {
         return ss.str();
     }
 
-    bool isNumber(std::string_view str)
+    inline bool isNumber(std::string_view str)
     {
         double v;
         const auto res = std::from_chars(str.data(), str.data() + str.size(), v);
