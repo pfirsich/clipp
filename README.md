@@ -105,12 +105,13 @@ Usually I am not a fan of header-only libraries and I much prefer a single heade
 Long story short, just download [clipp.hpp](./clipp.hpp) (or add this repo as a submodule or use CMake's `FetchContent` or whatever) and include [clipp.hpp](./clipp.hpp) in your code.
 
 ## To Do
+* Add a way to configure the name of a flag value in the help/usage string ("metavar" in Python's argparse). Make sure you can name multiple arguments differently.
+* Print default value in help text
 * More Examples. I know I want more, but I am not sure what exactly I should add. Suggestions welcome.
 * Test for error message in tests where parsing fails
 * Add tests for help and usage
 * Add tests for subcommands
 * Be more systematic about testing. Ideally test every branch intentionally and not just try out random stuff.
-* Add a way to configure the name of a flag value in the help/usage string ("metavar" in Python's argparse)
 * Hex/Octal/Binary Numbers (though if you need them, you can add your own Value specialization)
 
 ## Nice Links
