@@ -660,7 +660,7 @@ public:
             help.append("\n");
         }
 
-        if (!positionals_.empty()) {
+        if (!flags_.empty()) {
             help.append("Optional Arguments:\n");
             for (const auto& arg : flags_) {
                 help.append("  ");
