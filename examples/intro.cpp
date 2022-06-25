@@ -3,8 +3,8 @@
 #include "clipp.hpp"
 
 struct Args : public clipp::ArgsBase {
-    bool dryRun = false;
-    size_t verbose = 0;
+    bool dryRun;
+    size_t verbose;
     std::optional<int64_t> num;
     std::optional<std::string> output;
     std::vector<std::string> input;

@@ -287,6 +287,7 @@ namespace detail {
             : FlagBuilderMixin(std::move(name), "", shortOpt)
             , value_(value)
         {
+            value_ = false;
         }
 
         bool parse(std::string_view str) override
@@ -308,6 +309,7 @@ namespace detail {
             : FlagBuilderMixin(std::move(name), "", shortOpt)
             , value_(value)
         {
+            value_ = 0;
         }
 
         bool parse(std::string_view str) override

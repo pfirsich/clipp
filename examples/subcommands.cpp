@@ -26,7 +26,7 @@ struct StartArgs : public clipp::ArgsBase {
 };
 
 struct StopArgs : public clipp::ArgsBase {
-    bool force = false;
+    bool force;
     std::string system;
 
     void args()

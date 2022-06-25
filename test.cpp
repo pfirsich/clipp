@@ -57,9 +57,9 @@ auto parse(std::vector<std::string> args)
 }
 
 struct Args : public clipp::ArgsBase {
-    bool foo = false;
+    bool foo;
     std::optional<std::string> opt;
-    size_t verbose = 0;
+    size_t verbose;
     std::string pos;
     std::optional<int64_t> number;
     std::optional<double> fnum;

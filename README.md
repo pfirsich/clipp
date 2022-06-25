@@ -14,8 +14,8 @@ I also used the opportunity to build a parser that behaves how I think such pars
 #include "clipp.hpp"
 
 struct Args : public clipp::ArgsBase {
-    bool dryRun = false;
-    size_t verbose = 0;
+    bool dryRun;
+    size_t verbose;
     std::optional<int64_t> num;
     std::optional<std::string> output;
     std::vector<std::string> input;

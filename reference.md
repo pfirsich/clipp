@@ -12,8 +12,8 @@ The built-in supported value types are `int64_t`, `double` and `string`.
 
 ### `Flag<T>& flag<T>(T&, std::string name, char shortOpt = 0)`
 The behaviour of this flag is dependent on the template parameter `T` (the whole point of this library):
-* `T = bool`: Usage is `[--flag]`. If the flag is given, the value of the referenced variable will be set to `true`. You need to initialize it with `false` yourself. `choices` doesn't have any effect.
-* `T = size_t`: Usage is `[--flag]`. The referenced variable is increased for each time the flag is encountered. You need to initialize it to something yourself (likely `0`). `choices` doesn't have any effect.
+* `T = bool`: Usage is `[--flag]`. If the flag is given, the value of the referenced variable will be set to `true`. When this function is called the value of the references variable will be set to `false`. `choices` doesn't have any effect.
+* `T = size_t`: Usage is `[--flag]`. The referenced variable is increased for each time the flag is encountered. When this function is called the value of the references variable will be set to `0`. `choices` doesn't have any effect.
 * `T = std::optional<U>`: Usage is `[--flag FLAG]`, `[--flag=FLAG]` or `[-fFLAG]`. The referenced optional is set to the given value if the flag is given. `U` may be any of the built-in value types.
 * `T = std::vector<U>`: Usage is: `[--flag FLAG]` or `[--flag FLAG1 FLAG2 FLAG3]` (with `.num()`, see below). `U` may be any of the built-in value types.
 
