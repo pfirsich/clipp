@@ -76,11 +76,11 @@ Optional Arguments:
 * `-abf VALUE1 VALUE2 VALUE3`: Multiple arguments also work for the last short option in a stack.
 * `--flag VALUE1 --flag VALUE2`: `flag(vector<T>&)` - If a flag is given multiple times, all the values are collected. If something other than a vector is passed to `flag()` only the last value is saved.
 * `--flag VALUE1 VALUE2 --flag VALUE3 VALUE4`: `flag(vector<T>&).num(size_t).collect()` - You can also collect all values for multiple occurences of a flag with multiple arguments.
-* Use `--` to all arguments after it be interpreted as positional arguments.
+* Use `--` to have all arguments after it be interpreted as positional arguments.
 * `bar`: `positional(T&)` - Mandatory positional argument.
 * `[bar]`: `positional(optional<T>&)` or `positional(T&).optional()` - Optional positional arguments.
 * `bar [bar...]`: `positional(vector<T>&)` - Mandatory positional argument that may have many values (`[1, inf)`).
-* `[bar...]`: `positional(vector<T>&).optional()` - Optional positional argument that may have many values (`[0, inf]`).
+* `[bar...]`: `positional(vector<T>&).optional()` - Optional positional argument that may have many values (`[0, inf)`).
 * `source [source...] dest`: This will match all except the last positional argument to `source` and the last to `dest` (and error if there is only 0 or 1). clipp will try to match the positional arguments such that parsing does not fail, while favoring the earlier arguments. E.g. passing `{"1", "2", "3", "4", "5", "6"}` to `a [a....] b [b...] c [c...]` will result in `a` having elements 1 through 4 and `b` and `c` having 5 and 6 respectively. `--` can be used additional times to move on to the next positional argument. See [test.cpp](./test.cpp) (`PosDelimArgs`).
 * `.help(string)` - Can be used for every argument to specify a help text.
 * `.choices(vector<string>)` - Can be used for every argument to specify the valid values. It takes strings instead of `T`s, so it is easier (possible) to have the help text and error message contain the possible values.
@@ -106,13 +106,13 @@ Long story short, just download [clipp.hpp](./clipp.hpp) (or add this repo as a 
 
 ## To Do
 * Add a way to configure the name of a flag value in the help/usage string ("metavar" in Python's argparse). Make sure you can name multiple arguments differently.
-* Print default value in help text
+* Print default value in help text, but currently there is no good way to know that a default value has even been set. You can always put it in the help text yourself.
 * More Examples. I know I want more, but I am not sure what exactly I should add. Suggestions welcome.
 * Test for error message in tests where parsing fails
 * Add tests for help and usage
 * Add tests for subcommands
 * Be more systematic about testing. Ideally test every branch intentionally and not just try out random stuff.
-* Hex/Octal/Binary Numbers (though if you need them, you can add your own Value specialization)
+* Binary, octal and hex numbers? (though if you need them, you can add your own Value specialization)
 
 ## Nice Links
 These links were very helpful during development and I want to keep them, but I might as well put them in a publicly visible place.
