@@ -249,8 +249,6 @@ namespace detail {
             return derived();
         }
 
-        // Take a list of strings, because with custom types, we might not be able to
-        // give a nice error message or conversion might be lossy somehow.
         Derived& choices(std::vector<std::string> c)
         {
             choices_ = std::move(c);
@@ -700,9 +698,8 @@ public:
     }
 
 private:
-    // I don't want useless and potentially "dangerous" stuff to show up in autocomplete
-    // (generally), so I need to make some functions/data only accessible from Parser.
-    // This is the easiest way to do it, even though it's not squeaky clean.
+    // The following two functions are two useless and potentially "dangerous" to be public
+    // and since I only need them from Parser, I friend Parser here.
     friend class Parser;
 
     detail::FlagBase* flag(std::string_view name)
@@ -783,7 +780,7 @@ public:
         exitOnError_ = exitOnError;
     }
 
-    // This is essential haltOnFirstSuperfluousPositional
+    // This is essentialy haltOnFirstSuperfluousPositional
     void errorOnExtraArgs(bool errorOnExtraArgs)
     {
         errorOnExtraArgs_ = errorOnExtraArgs;
