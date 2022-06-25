@@ -164,6 +164,11 @@ namespace detail {
             return collect_;
         }
 
+        const std::vector<std::string>& valueNames() const
+        {
+            return valueNames_;
+        }
+
         virtual void reset()
         {
         }
@@ -172,6 +177,7 @@ namespace detail {
         char shortOpt_;
         size_t num_ = 0;
         bool collect_ = false;
+        std::vector<std::string> valueNames_;
     };
 
     class PositionalBase : public ArgBase {
@@ -226,6 +232,16 @@ namespace detail {
         Derived& halt(bool halt = true)
         {
             halt_ = halt;
+            return derived();
+        }
+
+        template <typename... Names>
+        Derived& valueNames(Names&&... names)
+        {
+            assert(num_ != 0);
+            assert(sizeof...(Names) == 1 || sizeof...(Names) == num_);
+            valueNames_ = std::vector<std::string> { static_cast<std::string>(
+                std::forward<Names>(names))... };
             return derived();
         }
 
@@ -574,6 +590,20 @@ public:
         return "";
     }
 
+    std::string getValueString(detail::FlagBase* flag) const
+    {
+        std::vector<std::string> valueNames;
+        if (flag->valueNames().empty()) {
+            valueNames = std::vector<std::string>(flag->num(), detail::toUpperCase(flag->name()));
+        } else if (flag->valueNames().size() == 1) {
+            valueNames = std::vector<std::string>(flag->num(), flag->valueNames()[0]);
+        } else {
+            assert(flag->valueNames().size() == flag->num());
+            valueNames = flag->valueNames();
+        }
+        return detail::join(valueNames, " ");
+    }
+
     virtual std::string usage(std::string_view programName) const
     {
         std::string usage = std::string(programName);
@@ -581,10 +611,11 @@ public:
         for (const auto& arg : flags_) {
             usage.append("[--");
             usage.append(arg->name());
-            const auto repArgs = detail::repeated(detail::toUpperCase(arg->name()), arg->num());
-            if (!repArgs.empty()) {
+
+            const auto values = getValueString(arg.get());
+            if (!values.empty()) {
                 usage.append(" ");
-                usage.append(repArgs);
+                usage.append(values);
             }
             usage.append("]");
             if (arg->collect()) {
@@ -674,11 +705,11 @@ public:
                 help.append("--");
                 help.append(arg->name());
                 size_t size = 4 + 2 + arg->name().size();
-                const auto repArgs = detail::repeated(detail::toUpperCase(arg->name()), arg->num());
-                if (!repArgs.empty()) {
+                const auto values = getValueString(arg.get());
+                if (!values.empty()) {
                     help.append(" ");
-                    help.append(repArgs);
-                    size += 1 + repArgs.size();
+                    help.append(values);
+                    size += 1 + values.size();
                 }
                 help.append(getSpacing(size), ' ');
                 help.append(arg->help());

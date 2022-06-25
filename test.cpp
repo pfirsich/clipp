@@ -69,7 +69,7 @@ struct Args : public clipp::ArgsBase {
     void args()
     {
         flag(foo, "foo", 'f').help("a boolean flag");
-        flag(opt, "opt", 'o').help("an optional string");
+        flag(opt, "opt", 'o').valueNames("VALUE").help("an optional string");
         flag(verbose, "verbose", 'v').help("a counted flag");
         flag(number, "number", 'n').help("a number flag");
         flag(fnum, "fnum").help("a real number flag");
@@ -274,6 +274,23 @@ TEST_CASE(R"({ "-obaz", "pos" } (Args))")
     CHECK(args->opt.value() == "baz");
 }
 
+TEST_CASE(R"({ "--version" } (Args))")
+{
+    const auto args = parse<Args>({ "--version" });
+    CHECK(args);
+    CHECK(exitStatus == 0);
+    CHECK(output->output == "0.1\n");
+}
+
+TEST_CASE(R"({ "--help" } (Args))")
+{
+    const auto args = parse<Args>({ "--help" });
+    CHECK(args);
+    CHECK(exitStatus == 0);
+    CHECK(contains(output->output, "[--opt VALUE]"));
+    CHECK(contains(output->output, "-o, --opt VALUE"));
+}
+
 struct OptParam : public clipp::ArgsBase {
     std::string pos = "def";
 
@@ -351,21 +368,6 @@ TEST_CASE(R"({ "c" } (CustomType))")
     CHECK(args->val == MyEnum::C);
 }
 
-TEST_CASE(R"({ "--version" } (Args))")
-{
-    const auto args = parse<Args>({ "--version" });
-    CHECK(args);
-    CHECK(exitStatus == 0);
-    CHECK(output->output == "0.1\n");
-}
-
-TEST_CASE(R"({ "--help" } (Args))")
-{
-    const auto args = parse<Args>({ "--help" });
-    CHECK(args);
-    CHECK(exitStatus == 0);
-}
-
 struct StdOptParam : public clipp::ArgsBase {
     int64_t x = 1000;
     std::optional<int64_t> y;
@@ -407,7 +409,7 @@ struct VecFlag : public clipp::ArgsBase {
 
     void args()
     {
-        flag(vec, "vec").num(3);
+        flag(vec, "vec", 'v').num(3).valueNames("X", "Y", "Z");
     }
 };
 
@@ -443,6 +445,16 @@ TEST_CASE(R"({ "--vec", "1", "2", "3", "4" } (VecFlag))")
 {
     const auto args = parse<VecFlag>({ "--vec", "1", "2", "3", "4" });
     CHECK(!args);
+}
+
+TEST_CASE(R"({ "--help" } (VecFlag))")
+{
+    const auto args = parse<VecFlag>({ "--help" });
+    CAPTURE(output->output);
+    CHECK(args);
+    CHECK(exitStatus == 0);
+    CHECK(contains(output->output, "[--vec X Y Z]"));
+    CHECK(contains(output->output, "-v, --vec X Y Z"));
 }
 
 struct VecParamZeroToInf : public clipp::ArgsBase {

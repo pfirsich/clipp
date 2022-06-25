@@ -25,7 +25,7 @@ struct Args : public clipp::ArgsBase {
         flag(dryRun, "dry-run", 'd').help("Only log potential filesystem changes");
         flag(verbose, "verbose", 'v').help("Output more debugging information");
         flag(num, "num").help("The number of things to do");
-        flag(output, "output", 'o').help("The output file");
+        flag(output, "output", 'o').valueNames("FILE").help("The output file");
         positional(input, "input");
     }
 };
@@ -48,13 +48,13 @@ Example Output:
 ```shell
 $ build/intro
 Missing argument 'input'
-Usage: build/intro [--help] [--dry-run] [--verbose] [--num NUM] [--output OUTPUT] input [input...]
+Usage: build/intro [--help] [--dry-run] [--verbose] [--num NUM] [--output FILE] input [input...]
 
 $ build/intro file1 file2 file3 -ooutfile -vvvvv --dry-run --num=5
 dry-run: 1, verbose: 5, num: 5, output: outfile, input: file1, file2, file3
 
 $ build/intro --help
-Usage: build/intro [--help] [--dry-run] [--verbose] [--num NUM] [--output OUTPUT] input [input...]
+Usage: build/intro [--help] [--dry-run] [--verbose] [--num NUM] [--output FILE] input [input...]
 
 Positional Arguments:
   input
@@ -64,7 +64,7 @@ Optional Arguments:
   -d, --dry-run                      Only log potential filesystem changes
   -v, --verbose                      Output more debugging information
       --num NUM                      The number of things to do
-  -o, --output OUTPUT                The output file
+  -o, --output FILE                  The output file
 ```
 
 ## Overview / Features
@@ -105,7 +105,6 @@ Usually I am not a fan of header-only libraries and I much prefer a single heade
 Long story short, just download [clipp.hpp](./clipp.hpp) (or add this repo as a submodule or use CMake's `FetchContent` or whatever) and include [clipp.hpp](./clipp.hpp) in your code.
 
 ## To Do
-* Add a way to configure the name of a flag value in the help/usage string ("metavar" in Python's argparse). Make sure you can name multiple arguments differently.
 * Print default value in help text, but currently there is no good way to know that a default value has even been set. You can always put it in the help text yourself.
 * More Examples. I know I want more, but I am not sure what exactly I should add. Suggestions welcome.
 * Test for error message in tests where parsing fails

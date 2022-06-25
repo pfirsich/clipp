@@ -50,6 +50,13 @@ If this is given every flag value will be checked against the given vector of st
 ### `Flag<T>& halt(bool = true)`
 If given argument parsing is aborted immediately if the flag is encountered. This is useful for flags like `--version` or `--help` to suppress parsing errors e.g. for missing positional arguments. Any remaining arguments that need to be parsed are saved and can be retrieved with `const std::vector<std::string>& ArgsBase::remaining()`.
 
+### `Flag<T>& valueNames(Names&&... names)`
+The arguments need to be convertible to `std::string`. The given names are used in usage and help strings instead of an uppercased name of the flag.
+E.g. for a flag `--output` the usage string would say `[--output OUTPUT]`, but if you specified `.valueNames("FILE")` it would say `[--output FILE]` instead.
+If you attempt to use this function on a flag with `num == 0` (`bool` and `size_t`) an assertion will fail.
+You can also use this function for flags with `num > 1`, but then you have to call `num()` first! If `num > 1` you must either pass a single name to `valueNames()`, which will be repeated `num` times or exactly `num` names.
+E.g. `flag(...).num(3).valueNames("C")` would show `--flag C C C` and `flag(...).num(3).valueNames("X", "Y", "Z")` would show `--flag X Y Z`.
+
 ## `Flag<vector<U>>`
 ### `Flag<vector<U>>& num(size_t num)`
 Use this to have a flag take a fixed number of values, e.g. `[--flag FLAG1 FLAG2]`. After successful parsing the referenced vector will either be empty or contain a multiple of `num` elements. This function will set `collect` to `false`. By default this is 1.

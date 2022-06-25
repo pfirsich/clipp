@@ -14,7 +14,7 @@ struct Args : public clipp::ArgsBase {
         flag(dryRun, "dry-run", 'd').help("Only log potential filesystem changes");
         flag(verbose, "verbose", 'v').help("Output more debugging information");
         flag(num, "num").help("The number of things to do");
-        flag(output, "output", 'o').help("The output file");
+        flag(output, "output", 'o').valueNames("FILE").help("The output file");
         positional(input, "input");
     }
 };
