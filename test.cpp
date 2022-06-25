@@ -42,7 +42,7 @@ clipp::Parser getParser()
     exitStatus = 0;
 
     auto parser = clipp::Parser("test");
-    // parser.version("0.1");
+    parser.version("0.1");
     parser.output(output);
     parser.exit([](int status) { exitStatus = status; });
 
