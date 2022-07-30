@@ -304,7 +304,7 @@ namespace detail {
             value_ = false;
         }
 
-        bool parse(std::string_view str) override
+        bool parse([[maybe_unused]] std::string_view str) override
         {
             assert(str.empty());
             value_ = true;
@@ -326,7 +326,7 @@ namespace detail {
             value_ = 0;
         }
 
-        bool parse(std::string_view str) override
+        bool parse([[maybe_unused]] std::string_view str) override
         {
             assert(str.empty());
             value_++;
