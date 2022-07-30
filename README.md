@@ -105,6 +105,7 @@ Usually I am not a fan of header-only libraries and I much prefer a single heade
 Long story short, just download [clipp.hpp](./clipp.hpp) (or add this repo as a submodule or use CMake's `FetchContent` or whatever) and include [clipp.hpp](./clipp.hpp) in your code.
 
 ## To Do
+* Optionally retrieve arguments from environment variables (overwritten by arguments passed on the command line)
 * Print default value in help text, but currently there is no good way to know that a default value has even been set. You can always put it in the help text yourself.
 * More Examples. I know I want more, but I am not sure what exactly I should add. Suggestions welcome.
 * Test for error message in tests where parsing fails
